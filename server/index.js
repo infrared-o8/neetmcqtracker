@@ -1,15 +1,37 @@
 import express from "express";
 import cors from "cors";
+import os from "os";
 import { db, getLeaderboard, getPlayer, updateStats, upsertPlayer } from "./db.js";
 
 const PORT = Number(process.env.PORT) || 3847;
 const SERVER_PIN = process.env.SERVER_PIN || "";
 
 const app = express();
+
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, X-Player-Id, X-Server-Pin, Authorization",
+  );
+  res.setHeader("Access-Control-Max-Age", "86400");
+  if (req.headers["access-control-request-private-network"]) {
+    res.setHeader("Access-Control-Allow-Private-Network", "true");
+  }
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 app.use(
   cors({
     origin: true,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-Player-Id", "X-Server-Pin"],
   }),
 );
 app.use(express.json({ limit: "64kb" }));
@@ -18,7 +40,6 @@ function requirePin(req, res, next) {
   if (!SERVER_PIN) return next();
   if (req.headers["x-server-pin"] === SERVER_PIN) return next();
   res.status(401).json({ error: "Invalid server pin" });
-  return undefined;
 }
 
 function requirePlayer(req, res, next) {
@@ -32,7 +53,7 @@ function requirePlayer(req, res, next) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, time: Date.now() });
+  res.json({ ok: true, time: Date.now(), port: PORT });
 });
 
 app.post("/api/players/register", requirePin, (req, res) => {
@@ -83,6 +104,10 @@ app.put("/api/players/:playerId/stats", requirePin, requirePlayer, (req, res) =>
     streak: stats.streak ?? player.streak,
     bestStreak: stats.bestStreak ?? player.best_streak,
     rankLabel: stats.rankLabel ?? player.rank_label,
+    studyMinutes:
+      stats.studyMinutes != null
+        ? Number(stats.studyMinutes) || 0
+        : (player.study_minutes ?? 0),
   });
   res.json({ ok: true });
 });
@@ -106,24 +131,45 @@ app.get("/api/players/:playerId", (req, res) => {
     level: row.level,
     totalSolved: row.total_solved,
     totalPagesRead: row.total_pages_read,
-    activityTotal: row.total_solved + row.total_pages_read,
+    activityTotal:
+      row.total_solved + row.total_pages_read + (row.study_minutes ?? 0) * 0.5,
     streak: row.streak,
     bestStreak: row.best_streak,
     rankLabel: row.rank_label,
+    studyMinutes: row.study_minutes ?? 0,
   });
 });
 
+function printLanAddresses() {
+  const nets = os.networkInterfaces();
+  const lines = [];
+  for (const entries of Object.values(nets)) {
+    for (const entry of entries || []) {
+      if (entry.family === "IPv4" && !entry.internal) {
+        lines.push(`  → http://${entry.address}:${PORT}`);
+      }
+    }
+  }
+  if (lines.length) {
+    console.log("\nFriends connect using one of these URLs in Settings:");
+    lines.forEach((l) => console.log(l));
+  }
+  console.log("\nWindows firewall (run as Admin if friends cannot connect):");
+  console.log(
+    `  netsh advfirewall firewall add rule name="NEET Tracker LB" dir=in action=allow protocol=TCP localport=${PORT}`,
+  );
+}
+
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`NEET leaderboard server http://0.0.0.0:${PORT}`);
+  console.log(`NEET leaderboard server listening on 0.0.0.0:${PORT}`);
   console.log(`DB: ${db.name}`);
+  printLanAddresses();
 });
 
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
-    console.error(`\nPort ${PORT} is already in use — leaderboard server is likely already running.`);
-    console.error("  • Use that existing terminal, or stop it:");
-    console.error(`    Windows: netstat -ano | findstr :${PORT}   then   taskkill /PID <pid> /F`);
-    console.error(`  • Or start on another port:  set PORT=3848&& npm run server\n`);
+    console.error(`\nPort ${PORT} is already in use — server may already be running.`);
+    console.error("  npm run server:stop   then   npm run server\n");
     process.exit(1);
   }
   throw err;

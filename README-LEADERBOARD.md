@@ -21,8 +21,19 @@ Or one command: `npm run dev:all`
 
 ## Two laptops
 
-**Host:** `npm run server` — note LAN IP (`ipconfig`, e.g. `192.168.1.42`)
+**Host (friend's laptop):**
+```bash
+npm run server
+```
+The terminal prints URLs like `http://192.168.1.42:3847` — share that with friends.
 
-**Both laptops:** Settings → Server URL → `http://192.168.1.42:3847` → **Test & sync**
+**Your laptop:** Settings → Server URL → `http://FRIEND_IP:3847` (must include `http://`) → **Test & sync**
 
-Allow port **3847** through Windows Firewall on the host if needed.
+**If connection fails (TCP / network error):**
+1. Both on the **same Wi‑Fi** (not guest network)
+2. Friend runs `npm run server` and keeps the terminal open
+3. On friend's PC, allow firewall (Admin PowerShell):
+   ```text
+   netsh advfirewall firewall add rule name="NEET Tracker LB" dir=in action=allow protocol=TCP localport=3847
+   ```
+4. Use the exact URL from friend's server terminal (not `localhost`)

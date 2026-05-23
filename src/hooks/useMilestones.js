@@ -7,7 +7,7 @@ const MILESTONE_DEFS = [
   {
     id: "activity-500",
     label: "500 Activity — Bio-Warhead Pace",
-    check: (s) => getActivityTotal(s.totalSolved, s.totalPagesRead) >= 500,
+    check: (s) => getActivityTotal(s.totalSolved, s.totalPagesRead, s.studyMinutes) >= 500,
   },
   { id: "pages-100", label: "Century Reader — 100 NCERT Pages", check: (s) => s.totalPagesRead >= 100 },
 ];
@@ -15,6 +15,7 @@ const MILESTONE_DEFS = [
 export function useMilestones() {
   const totalSolved = useTrackerStore((s) => s.totalSolved);
   const totalPagesRead = useTrackerStore((s) => s.totalPagesRead);
+  const studyMinutes = useTrackerStore((s) => s.studyMinutes);
   const streak = useTrackerStore((s) => s.streak);
   const seenMilestones = useTrackerStore((s) => s.seenMilestones);
   const markSeen = useTrackerStore((s) => s.markMilestoneSeen);
@@ -24,8 +25,8 @@ export function useMilestones() {
   useEffect(() => {
     if (active) return;
 
-    const state = { totalSolved, totalPagesRead, streak };
-    const activityTotal = getActivityTotal(totalSolved, totalPagesRead);
+    const state = { totalSolved, totalPagesRead, studyMinutes, streak };
+    const activityTotal = getActivityTotal(totalSolved, totalPagesRead, studyMinutes);
     const { currentIndex, rank } = getRank(activityTotal);
 
     for (const m of MILESTONE_DEFS) {
@@ -44,7 +45,7 @@ export function useMilestones() {
     } else if (lastRankIndex.current < 0) {
       lastRankIndex.current = currentIndex;
     }
-  }, [totalSolved, totalPagesRead, streak, seenMilestones, active]);
+  }, [totalSolved, totalPagesRead, studyMinutes, streak, seenMilestones, active]);
 
   const dismiss = () => {
     if (active) {

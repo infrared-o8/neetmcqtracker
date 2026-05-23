@@ -29,26 +29,25 @@ export function SettingsPage() {
   const videoId = parseYoutubeId(videoUrlDraft);
 
   const test = async () => {
-    const url = urlInput.trim();
-    setPreferences({ serverUrl: url });
     ensurePlayerId();
-    const ok = await testConnection(url);
-    if (!ok) {
-      setStatus(
-        url
-          ? "Connection failed — is npm run server running on that host?"
-          : "Connection failed — run npm run server in a terminal, then try again.",
-      );
+    const result = await testConnection(urlInput.trim());
+    if (!result.ok) {
+      setStatus(result.error || "Connection failed.");
       return;
     }
     const { playerId: pid } = useProfileStore.getState();
-    await apiFetch(url, "/api/players/register", {
-      method: "POST",
-      headers: { "X-Player-Id": pid },
-      body: JSON.stringify({ playerId: pid, displayName, decor }),
-    });
-    await syncNow();
-    setStatus("Connected and synced!");
+    const savedUrl = useTrackerStore.getState().preferences.serverUrl;
+    try {
+      await apiFetch(savedUrl, "/api/players/register", {
+        method: "POST",
+        headers: { "X-Player-Id": pid },
+        body: JSON.stringify({ playerId: pid, displayName, decor }),
+      });
+      await syncNow();
+      setStatus(`Connected to ${result.url || savedUrl || "server"} — synced!`);
+    } catch (e) {
+      setStatus(e.message);
+    }
   };
 
   const saveDecor = async () => {
@@ -69,13 +68,14 @@ export function SettingsPage() {
           <code className="text-cyan-400">npm run server</code> — Vite proxies{" "}
           <code className="text-cyan-400">/api</code> automatically.
           <br />
-          <strong className="text-zinc-400">Second laptop:</strong> enter host LAN URL (e.g.{" "}
-          http://192.168.1.42:3847).
+          <strong className="text-zinc-400">Friend&apos;s laptop:</strong> they run{" "}
+          <code className="text-cyan-400">npm run server</code> — you enter{" "}
+          <code className="text-cyan-400">http://THEIR_IP:3847</code> (http required). Same Wi‑Fi.
         </p>
         <input
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
-          placeholder="Leave empty for localhost proxy"
+          placeholder="http://192.168.1.42:3847"
           className="mt-3 w-full rounded-xl border border-white/10 bg-zinc-900/70 px-4 py-2 text-white outline-none focus:ring-2 focus:ring-fuchsia-400/40"
         />
         <button
@@ -85,7 +85,15 @@ export function SettingsPage() {
         >
           Test & sync
         </button>
-        {status && <p className="mt-2 text-sm text-emerald-300">{status}</p>}
+        {status && (
+          <p
+            className={`mt-2 text-sm leading-relaxed whitespace-pre-wrap ${
+              status.startsWith("Connected") ? "text-emerald-300" : "text-amber-200"
+            }`}
+          >
+            {status}
+          </p>
+        )}
         <p className="mt-2 text-[10px] text-zinc-600">Player ID: {playerId || "—"}</p>
       </section>
 

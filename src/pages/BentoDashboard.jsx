@@ -11,12 +11,17 @@ import { StatGlowCard } from "../components/ui/StatGlowCard";
 import { useRankUpgradePulse } from "../hooks/useRankUpgradePulse";
 import { RollingNumber } from "../components/ui/RollingNumber";
 import { MilestoneReveal } from "../components/MilestoneReveal";
+import { RankUnlockSpectacle } from "../components/dashboard/RankUnlockSpectacle";
+import { SpeedCard } from "../components/dashboard/SpeedCard";
+import { FaceStudyTopBar } from "../components/study/FaceStudyTopBar";
+import { StudyCameraCard } from "../components/study/StudyCameraCard";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { useMicroRewards } from "../hooks/useMicroRewards";
 import { useLeaderboardSync } from "../hooks/useLeaderboardSync";
 import { useMilestones } from "../hooks/useMilestones";
 import {
   getActivityTotal,
+  getStudyActivityBonus,
   getLevelFromXp,
   getMotivationMessage,
   getRankProgress,
@@ -73,7 +78,10 @@ export function BentoDashboard() {
   const { onIncrement, playLevelUp } = useMicroRewards();
   const { scheduleSync } = useLeaderboardSync();
   const { activeMilestone, dismissMilestone } = useMilestones();
-  const { pulsing: rankPulse } = useRankUpgradePulse();
+  const studyMinutes = useTrackerStore((s) => s.studyMinutes);
+  const studyMinutesToday = useTrackerStore((s) => s.studyMinutesToday);
+  const { pulsing: rankPulse, pulseKey: rankPulseKey, rankLabel: unlockedRankLabel, dismiss: dismissRankPulse } =
+    useRankUpgradePulse();
 
   const [burst, setBurst] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 1200, height: 760 });
@@ -83,7 +91,7 @@ export function BentoDashboard() {
   const today = getTodayKey();
   const todaySolved = dailyLogs[today] ?? 0;
   const todayPages = dailyPageLogs[today] ?? 0;
-  const activityTotal = getActivityTotal(totalSolved, totalPagesRead);
+  const activityTotal = getActivityTotal(totalSolved, totalPagesRead, studyMinutes);
   const levelData = getLevelFromXp(xp);
   const rankProgress = getRankProgress(activityTotal);
   const isPages = trackingMode === "pages";
@@ -158,18 +166,26 @@ export function BentoDashboard() {
       }`}
     >
       <AnimatePresence>
-        {goalMet && (
+        {(goalMet || rankPulse) && (
           <Confetti
-            key={burst}
+            key={`${burst}-${rankPulseKey}`}
             width={windowSize.width}
             height={windowSize.height}
             recycle={false}
-            numberOfPieces={180}
+            numberOfPieces={rankPulse ? 280 : 180}
             gravity={0.18}
           />
         )}
       </AnimatePresence>
+      <RankUnlockSpectacle
+        active={rankPulse}
+        rankLabel={unlockedRankLabel}
+        pulseKey={rankPulseKey}
+        onDismiss={dismissRankPulse}
+      />
       <MilestoneReveal milestone={activeMilestone} onDismiss={dismissMilestone} />
+
+      <FaceStudyTopBar />
 
       <MotionDiv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         {breakWarning && (
@@ -204,7 +220,8 @@ export function BentoDashboard() {
               <RollingNumber value={activityTotal} />
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              {totalSolved} MCQs · {totalPagesRead} pages
+              {totalSolved} MCQs · {totalPagesRead} pages · {studyMinutes}m study (
+              +{getStudyActivityBonus(studyMinutes)} activity)
             </p>
           </StatGlowCard>
 
@@ -214,11 +231,26 @@ export function BentoDashboard() {
               <RollingNumber value={streak} />d
             </p>
             <p className="text-xs text-zinc-500">Best: {bestStreak}d</p>
+            <p className="mt-3 border-t border-white/5 pt-2 text-xs text-zinc-500">
+              Study: <span className="font-semibold text-emerald-300">{studyMinutesToday}m</span> today ·{" "}
+              <span className="text-zinc-400">{studyMinutes}m</span> total
+            </p>
           </GlowCard>
 
-          <GlowCard className="bento-rank md:row-span-2">
+          <GlowCard
+            className={`bento-rank md:row-span-2 transition-all duration-500 ${
+              rankPulse ? "rank-card-spectacle glow-border animate-glow-pulse" : ""
+            }`}
+          >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Rank</p>
-            <p className="mt-2 text-xl font-semibold chroma-text">{rankProgress.currentRank.label}</p>
+            <motion.p
+              key={rankProgress.currentRank.label}
+              className="mt-2 text-xl font-semibold chroma-text"
+              animate={rankPulse ? { scale: [1, 1.06, 1] } : {}}
+              transition={{ duration: 0.6, repeat: rankPulse ? Infinity : 0, repeatDelay: 0.3 }}
+            >
+              {rankProgress.currentRank.label}
+            </motion.p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
               <MotionDiv
                 className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-400"
@@ -279,20 +311,15 @@ export function BentoDashboard() {
             </p>
           </GlowCard>
 
-          <GlowCard className="bento-speed">
-            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Speed</p>
-            <p className="mt-1 text-2xl font-bold">
-              {currentSpeed} <span className="text-sm text-zinc-400">{speedLabel}</span>
-            </p>
-            <p className="mt-2 text-xs text-zinc-500">Best combo: {bestMomentumChain}</p>
-            <input
-              type="number"
-              min={10}
-              value={velocityTarget}
-              onChange={(e) => setVelocityTarget(Number(e.target.value || 0))}
-              className="mt-2 w-full rounded-lg border border-white/10 bg-zinc-900/60 px-2 py-1 text-sm text-white"
-            />
-          </GlowCard>
+          <SpeedCard
+            currentSpeed={currentSpeed}
+            speedLabel={speedLabel}
+            velocityTarget={velocityTarget}
+            setVelocityTarget={setVelocityTarget}
+            bestMomentumChain={bestMomentumChain}
+          />
+
+          <StudyCameraCard />
 
           <GlowCard className="bento-heatmap md:col-span-2">
             <p className="mb-3 text-xs uppercase tracking-[0.22em] text-zinc-400">Study density</p>

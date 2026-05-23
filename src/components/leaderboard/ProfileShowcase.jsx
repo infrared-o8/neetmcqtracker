@@ -1,93 +1,53 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
-import { BANNERS, FRAMES } from "../../data/profileDecor";
+import { motion, AnimatePresence } from "framer-motion";
+import { ProfileDecorCard } from "./ProfileDecorCard";
 
-export function ProfileShowcase({ player, anchorRect, onClose }) {
-  const ref = useRef(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+export function ProfileShowcase({ player, open, onClose, onPanelEnter, onPanelLeave }) {
+  const panelRef = useRef(null);
 
   useEffect(() => {
-    const t = setTimeout(onClose, 8000);
-    return () => clearTimeout(t);
-  }, [onClose]);
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
-  if (!player || !anchorRect) return null;
+  if (!player) return null;
 
-  const decor = player.decor || {};
-  const banner = BANNERS[decor.bannerId] || BANNERS.nebula;
-  const frame = FRAMES[decor.frameId] || FRAMES.rare;
-  const left = Math.min(anchorRect.left, window.innerWidth - 320);
-  const top = anchorRect.bottom + 8;
-
-  const content = (
-    <motion.div
-      ref={ref}
-      className="fixed z-[200] w-[300px]"
-      style={{ left, top }}
-      initial={{ opacity: 0, scale: 0.85, rotateY: -25 }}
-      animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      onMouseLeave={onClose}
-      onMouseMove={(e) => {
-        const el = ref.current;
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        setTilt({
-          x: ((e.clientX - r.left) / r.width - 0.5) * 16,
-          y: ((e.clientY - r.top) / r.height - 0.5) * -16,
-        });
-      }}
-    >
-      <div
-        className={`showcase-card overflow-hidden rounded-2xl border-2 ${frame.border} ${frame.glow}`}
-        style={{
-          transform: `perspective(600px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`,
-          background: banner,
-        }}
-      >
-        <div className="showcase-sheen pointer-events-none absolute inset-0" />
-        <div className="showcase-particles pointer-events-none absolute inset-0" />
-        <div className="relative bg-black/50 p-4 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/20 bg-black/40 text-2xl"
-              style={{ boxShadow: `0 0 20px ${decor.accent || "#a855f7"}55` }}
-            >
-              {decor.avatarEmoji || "📚"}
-            </span>
-            <div>
-              <p className="text-lg font-bold text-white">{player.displayName}</p>
-              {decor.titleId && (
-                <p className="chroma-text text-xs font-semibold uppercase">{decor.titleId}</p>
-              )}
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs">
-            <div className="rounded-lg bg-white/10 py-2">
-              <p className="text-zinc-400">Activity</p>
-              <p className="font-bold text-white">{player.activityTotal?.toLocaleString()}</p>
-            </div>
-            <div className="rounded-lg bg-white/10 py-2">
-              <p className="text-zinc-400">Rank</p>
-              <p className="font-bold text-cyan-300">{player.rankLabel}</p>
-            </div>
-            <div className="rounded-lg bg-white/10 py-2">
-              <p className="text-zinc-400">MCQs</p>
-              <p className="font-bold">{player.totalSolved?.toLocaleString()}</p>
-            </div>
-            <div className="rounded-lg bg-white/10 py-2">
-              <p className="text-zinc-400">Pages</p>
-              <p className="font-bold">{player.totalPagesRead?.toLocaleString()}</p>
-            </div>
-          </div>
-          <p className="mt-3 text-center text-[10px] text-zinc-500">
-            #{player.rank} · {player.streak}d streak · Lv.{player.level}
-          </p>
-        </div>
-      </div>
-    </motion.div>
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            ref={panelRef}
+            className="fixed left-1/2 top-1/2 z-[251] w-[min(340px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2"
+            initial={{ opacity: 0, scale: 0.88, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 12 }}
+            transition={{ type: "spring", damping: 16, stiffness: 200 }}
+            onMouseEnter={onPanelEnter}
+            onMouseLeave={onPanelLeave}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="showcase-particles pointer-events-none absolute -inset-4 rounded-3xl" />
+            <ProfileDecorCard player={player} />
+            <p className="mt-2 text-center text-[10px] text-zinc-500">
+              Press Esc or click outside to close
+            </p>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>,
+    document.body,
   );
-
-  return createPortal(content, document.body);
 }

@@ -7,6 +7,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { useProfileStore } from "./store/useProfileStore";
+import { FaceStudyProvider } from "./context/FaceStudyProvider";
 
 const MotionDiv = motion.div;
 
@@ -18,6 +19,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <FaceStudyProvider>
       <main className="relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100">
         <YoutubeMedia />
         <div className="mesh-bg pointer-events-none fixed inset-0 -z-10" />
@@ -39,6 +41,7 @@ function App() {
           </div>
         </MotionDiv>
       </main>
+      </FaceStudyProvider>
     </BrowserRouter>
   );
 }

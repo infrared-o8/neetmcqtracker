@@ -1,60 +1,71 @@
-import { useRef, useState } from "react";
-import { FRAMES } from "../../data/profileDecor";
-import { ProfileShowcase } from "./ProfileShowcase";
+import { Crown } from "lucide-react";
+import { FRAMES, DEFAULT_DECOR } from "../../data/profileDecor";
 
-export function LeaderboardRow({ player, isSelf }) {
-  const rowRef = useRef(null);
-  const [showcase, setShowcase] = useState(null);
-  const hoverTimer = useRef(null);
-  const decor = player.decor || {};
+export function LeaderboardRow({
+  player,
+  isSelf,
+  isFirst,
+  showHoverHint,
+  onHover,
+  onLeave,
+  onOpenProfile,
+}) {
+  const decor = { ...DEFAULT_DECOR, ...(player.decor || {}) };
   const frame = FRAMES[decor.frameId] || FRAMES.common;
 
-  const onEnter = () => {
-    hoverTimer.current = setTimeout(() => {
-      const rect = rowRef.current?.getBoundingClientRect();
-      if (rect) setShowcase(rect);
-    }, 150);
-  };
-
-  const onLeave = () => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-  };
-
   return (
-    <>
-      <div
-        ref={rowRef}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
-        className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
-          isSelf
-            ? "border-fuchsia-400/40 bg-fuchsia-500/10"
-            : "border-white/5 bg-zinc-900/30 hover:border-violet-400/30 hover:bg-violet-500/5"
-        } ${frame.glow}`}
-      >
-        <span className="w-8 text-center text-sm font-bold text-zinc-500">#{player.rank}</span>
-        <span
-          className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg ${frame.border}`}
-          style={{ borderColor: decor.accent ? `${decor.accent}66` : undefined }}
-        >
-          {decor.avatarEmoji || "📚"}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-white">{player.displayName}</p>
-          <p className="truncate text-xs text-zinc-500">{player.rankLabel}</p>
+    <tr
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      onClick={onOpenProfile}
+      className={`leaderboard-row group cursor-pointer border-b border-white/5 transition ${
+        isFirst ? "rank-one-row" : ""
+      } ${isSelf ? "bg-fuchsia-500/10" : "hover:bg-violet-500/8"} ${
+        showHoverHint ? "leaderboard-row-hint" : ""
+      }`}
+    >
+      <td className="px-3 py-3 text-center">
+        {isFirst ? (
+          <span className="rank-one-crown inline-flex items-center gap-1 text-amber-300">
+            <Crown className="h-4 w-4" />
+            <span className="font-bold">1</span>
+          </span>
+        ) : (
+          <span className="text-sm font-bold text-zinc-500">#{player.rank}</span>
+        )}
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-lg ${frame.border} ${frame.glow}`}
+            style={{ borderColor: decor.accent ? `${decor.accent}88` : undefined }}
+          >
+            {decor.avatarEmoji || "📚"}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-white">
+              {player.displayName}
+              {isSelf && <span className="ml-1 text-[10px] text-fuchsia-300">(you)</span>}
+            </p>
+            <p className="truncate text-xs text-zinc-500">{player.rankLabel}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="font-bold text-violet-300">{player.activityTotal?.toLocaleString()}</p>
-          <p className="text-[10px] text-zinc-500">{player.streak}d streak</p>
-        </div>
-      </div>
-      {showcase && (
-        <ProfileShowcase
-          player={player}
-          anchorRect={showcase}
-          onClose={() => setShowcase(null)}
-        />
-      )}
-    </>
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums text-sm font-semibold text-cyan-200">
+        {player.totalSolved?.toLocaleString() ?? 0}
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums text-sm font-semibold text-violet-200">
+        {player.totalPagesRead?.toLocaleString() ?? 0}
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums text-sm font-bold text-white">
+        {player.activityTotal?.toLocaleString() ?? 0}
+      </td>
+      <td className="hidden px-3 py-3 text-right text-sm text-zinc-400 sm:table-cell">
+        {player.streak}d
+      </td>
+      <td className="px-3 py-3 text-right text-sm font-semibold tabular-nums text-emerald-300/90">
+        {Number(player.studyMinutes ?? 0)}m
+      </td>
+    </tr>
   );
 }

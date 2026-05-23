@@ -42,6 +42,9 @@ export const initialState = {
   breakWarning: false,
   velocityTarget: 60,
   seenMilestones: [],
+  studyMinutes: 0,
+  studyMinutesToday: 0,
+  studyMinutesDate: "",
   preferences: { ...DEFAULT_PREFERENCES },
   session: {
     active: false,
@@ -292,10 +295,24 @@ export const useTrackerStore = create(
           }
           return next;
         }),
+      addStudyMinute: () => {
+        set((state) => {
+          const today = getTodayKey();
+          const sameDay = state.studyMinutesDate === today;
+          return {
+            studyMinutes: state.studyMinutes + 1,
+            studyMinutesToday: sameDay ? state.studyMinutesToday + 1 : 1,
+            studyMinutesDate: today,
+          };
+        });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("neet:study-minute"));
+        }
+      },
       clearAll: () => set({ ...initialState, preferences: get().preferences }),
       getSnapshot: () => {
         const s = get();
-        const activityTotal = getActivityTotal(s.totalSolved, s.totalPagesRead);
+        const activityTotal = getActivityTotal(s.totalSolved, s.totalPagesRead, s.studyMinutes);
         const { rank } = getRank(activityTotal);
         return {
           xp: s.xp,
@@ -306,6 +323,7 @@ export const useTrackerStore = create(
           streak: s.streak,
           bestStreak: s.bestStreak,
           rankLabel: rank.label,
+          studyMinutes: s.studyMinutes,
         };
       },
     }),
@@ -327,6 +345,9 @@ export const useTrackerStore = create(
           pageTimestamps: base.pageTimestamps ?? [],
           lastPageAt: base.lastPageAt ?? 0,
           seenMilestones: base.seenMilestones ?? [],
+          studyMinutes: base.studyMinutes ?? 0,
+          studyMinutesToday: base.studyMinutesToday ?? 0,
+          studyMinutesDate: base.studyMinutesDate ?? "",
           preferences: {
             ...DEFAULT_PREFERENCES,
             ...(base.preferences || {}),
@@ -357,6 +378,9 @@ export const useTrackerStore = create(
         breakWarning: state.breakWarning,
         velocityTarget: state.velocityTarget,
         seenMilestones: state.seenMilestones,
+        studyMinutes: state.studyMinutes,
+        studyMinutesToday: state.studyMinutesToday,
+        studyMinutesDate: state.studyMinutesDate,
         preferences: state.preferences,
         session: state.session,
         lastSessionSummary: state.lastSessionSummary,

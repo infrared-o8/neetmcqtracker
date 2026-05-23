@@ -36,6 +36,7 @@ export function upsertPlayer({ playerId, displayName, decor }) {
     streak: 0,
     best_streak: 0,
     rank_label: "Beginner",
+    study_minutes: 0,
   };
   data.players[playerId] = {
     ...existing,
@@ -45,6 +46,10 @@ export function upsertPlayer({ playerId, displayName, decor }) {
     updated_at: Date.now(),
   };
   save(data);
+}
+
+function activityFromRow(row) {
+  return row.total_solved + row.total_pages_read + (row.study_minutes ?? 0) * 0.5;
 }
 
 export function updateStats(playerId, stats) {
@@ -59,6 +64,10 @@ export function updateStats(playerId, stats) {
     streak: stats.streak,
     best_streak: stats.bestStreak,
     rank_label: stats.rankLabel,
+    study_minutes:
+      stats.studyMinutes != null
+        ? Number(stats.studyMinutes) || 0
+        : (data.players[playerId].study_minutes ?? 0),
     updated_at: Date.now(),
   };
   save(data);
@@ -74,8 +83,8 @@ export function getLeaderboard(sort = "activity") {
   const data = load();
   const rows = Object.values(data.players);
   rows.sort((a, b) => {
-    const actA = a.total_solved + a.total_pages_read;
-    const actB = b.total_solved + b.total_pages_read;
+    const actA = activityFromRow(a);
+    const actB = activityFromRow(b);
     if (sort === "xp") return b.xp - a.xp || actB - actA;
     if (sort === "streak") return b.streak - a.streak || actB - actA;
     return actB - actA || b.xp - a.xp;
@@ -89,10 +98,11 @@ export function getLeaderboard(sort = "activity") {
     level: row.level,
     totalSolved: row.total_solved,
     totalPagesRead: row.total_pages_read,
-    activityTotal: row.total_solved + row.total_pages_read,
+    activityTotal: activityFromRow(row),
     streak: row.streak,
     bestStreak: row.best_streak,
     rankLabel: row.rank_label,
+    studyMinutes: row.study_minutes ?? 0,
     updatedAt: row.updated_at,
   }));
 }

@@ -5,6 +5,7 @@ import { useTrackerStore } from "../store/useTrackerStore";
 import { PixelCompanion } from "./PixelCompanion";
 import { useAmbientAudio } from "../hooks/useAmbientAudio";
 import { parseYoutubeId } from "../utils/youtube";
+import { StudyCameraPanel } from "./study/StudyCameraPanel";
 
 const navClass = ({ isActive }) =>
   `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
@@ -162,6 +163,8 @@ export function StudySidebar() {
           Uses only this link. Click Play after pasting (browser autoplay rules).
         </p>
       </div>
+
+      <StudyCameraPanel />
     </aside>
   );
 }

@@ -2,33 +2,47 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const RANKS = [
   { label: "Beginner", minSolved: 0 },
-  { label: "Warmup Solver", minSolved: 25 },
-  { label: "Foundation Builder", minSolved: 60 },
-  { label: "Consistency Cadet", minSolved: 120 },
-  { label: "Aspirant", minSolved: 200 },
-  { label: "Question Grinder", minSolved: 320 },
-  { label: "Ranker", minSolved: 480 },
-  { label: "State Challenger", minSolved: 700 },
-  { label: "Top 25K Pace", minSolved: 950 },
-  { label: "Top 10K Pace", minSolved: 1250 },
-  { label: "Top 5K Pace", minSolved: 1650 },
-  { label: "Top 2K Pace", minSolved: 2100 },
-  { label: "Top 1K", minSolved: 2700 },
-  { label: "AIR < 750", minSolved: 3400 },
-  { label: "AIR < 500", minSolved: 4200 },
-  { label: "AIR < 300", minSolved: 5100 },
-  { label: "AIR < 200", minSolved: 6200 },
-  { label: "AIR < 100", minSolved: 7500 },
-  { label: "Neural Overclock", minSolved: 9000 },
-  { label: "Synaptic Storm", minSolved: 11000 },
-  { label: "Bio-Warhead", minSolved: 13500 },
-  { label: "Quantum Grinder", minSolved: 16500 },
-  { label: "Mythic Aspirant", minSolved: 20000 },
-  { label: "AIR Apex", minSolved: 25000 },
+  { label: "Warmup Solver", minSolved: 100 },
+  { label: "Foundation Builder", minSolved: 300 },
+  { label: "Consistency Cadet", minSolved: 600 },
+  { label: "Aspirant", minSolved: 1000 },
+  { label: "Question Grinder", minSolved: 1500 },
+  { label: "Syllabus Tracker", minSolved: 2200 },
+  { label: "Module Finisher", minSolved: 3000 },
+  { label: "Revision Regular", minSolved: 4000 },
+  { label: "Error Book Disciplined", minSolved: 5200 },
+  { label: "Major Test Competitor", minSolved: 6600 },
+  { label: "Ranker Marks Pace", minSolved: 8200 },
+  { label: "State Challenger Track", minSolved: 10000 },
+  { label: "Top 25K Projected", minSolved: 12000 },
+  { label: "Top 15K Projected", minSolved: 14200 },
+  { label: "Top 10K Projected", minSolved: 16600 },
+  { label: "Top 5K Projected", minSolved: 19200 },
+  { label: "Top 3K Projected", minSolved: 22000 },
+  { label: "Top 2K Projected", minSolved: 25000 },
+  { label: "Top 1K Target", minSolved: 28200 },
+  { label: "AIR < 750 Bracket", minSolved: 31600 },
+  { label: "AIR < 500 Bracket", minSolved: 35200 },
+  { label: "AIR < 300 Bracket", minSolved: 39000 },
+  { label: "AIR < 200 Bracket", minSolved: 43000 },
+  { label: "AIR < 100 Bracket", minSolved: 47200 },
+  { label: "AIR < 50 Elite", minSolved: 51600 },
+  { label: "Elite Star Batch Pace", minSolved: 56200 },
+  { label: "Special Rankers Group", minSolved: 61000 },
+  { label: "National Benchmark Leader", minSolved: 66000 },
+  { label: "AIR Apex Trajectory", minSolved: 71200 },
 ];
 
-export function getActivityTotal(totalSolved, totalPagesRead = 0) {
-  return totalSolved + totalPagesRead;
+
+/** Each verified face-study minute adds half an activity point (MCQ/page equivalent). */
+export const STUDY_MINUTE_ACTIVITY = 0.5;
+
+export function getStudyActivityBonus(studyMinutes = 0) {
+  return studyMinutes * STUDY_MINUTE_ACTIVITY;
+}
+
+export function getActivityTotal(totalSolved, totalPagesRead = 0, studyMinutes = 0) {
+  return totalSolved + totalPagesRead + getStudyActivityBonus(studyMinutes);
 }
 
 export function getTodayKey() {

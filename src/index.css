@@ -155,6 +155,29 @@ body {
   }
 }
 
+.mirror-video {
+  transform: scaleX(-1);
+}
+
+@keyframes studyMinuteBurst {
+  0% {
+    transform: scale(0.9);
+    filter: drop-shadow(0 0 0 rgba(52, 211, 153, 0));
+  }
+  40% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 24px rgba(52, 211, 153, 0.55));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.25));
+  }
+}
+
+.study-minute-burst {
+  animation: studyMinuteBurst 0.55s ease-out;
+}
+
 .animate-glow-pulse {
   animation: glowPulse 2.5s ease-in-out infinite;
 }
@@ -232,7 +255,7 @@ body {
       "today today streak"
       "rank quick quick"
       "rank goal speed"
-      "heat heat heat"
+      "camera camera heat"
       "ladder ladder ladder"
       "session session session"
       "chart chart chart";
@@ -257,6 +280,9 @@ body {
   }
   .bento-speed {
     grid-area: speed;
+  }
+  .bento-camera {
+    grid-area: camera;
   }
   .bento-heatmap {
     grid-area: heat;
@@ -395,4 +421,188 @@ body {
 *::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(168, 85, 247, 0.9), rgba(34, 211, 238, 0.85));
   border-radius: 9999px;
+}
+
+/* Speed card outlines */
+.speed-highlight-wrap {
+  position: relative;
+  border-radius: 1.5rem;
+}
+
+.speed-highlight-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(
+    135deg,
+    var(--speed-a, rgba(34, 211, 238, 0.5)),
+    var(--speed-b, rgba(168, 85, 247, 0.35))
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.speed-highlight-wrap:hover::before,
+.speed-bump::before {
+  opacity: 1;
+}
+
+.speed-outline-cyan {
+  --speed-a: rgba(34, 211, 238, 0.85);
+  --speed-b: rgba(52, 211, 153, 0.5);
+}
+.speed-glow-cyan {
+  filter: drop-shadow(0 0 14px rgba(34, 211, 238, 0.35));
+}
+
+.speed-outline-amber {
+  --speed-a: rgba(251, 191, 36, 0.8);
+  --speed-b: rgba(249, 115, 22, 0.45);
+}
+.speed-glow-amber {
+  filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.25));
+}
+
+.speed-outline-rose {
+  --speed-a: rgba(244, 63, 94, 0.7);
+  --speed-b: rgba(251, 113, 133, 0.4);
+}
+
+.speed-outline-fire {
+  --speed-a: rgba(232, 121, 249, 0.9);
+  --speed-b: rgba(34, 211, 238, 0.6);
+}
+.speed-glow-fire {
+  filter: drop-shadow(0 0 20px rgba(232, 121, 249, 0.45));
+}
+
+.speed-bump {
+  animation: speedBump 0.6s ease-out;
+}
+
+@keyframes speedBump {
+  0% {
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 0 28px rgba(168, 85, 247, 0.55));
+  }
+  100% {
+    filter: drop-shadow(0 0 14px rgba(34, 211, 238, 0.3));
+  }
+}
+
+/* Rank unlock spectacle */
+.rank-unlock-banner {
+  background: linear-gradient(135deg, rgba(30, 20, 50, 0.95), rgba(15, 15, 25, 0.98));
+}
+
+.rank-unlock-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: rankShimmer 2s ease-in-out infinite;
+}
+
+@keyframes rankShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.rank-card-spectacle {
+  box-shadow:
+    0 0 40px rgba(168, 85, 247, 0.35),
+    inset 0 0 30px rgba(34, 211, 238, 0.06);
+}
+
+.rank-reveal-card {
+  background: linear-gradient(160deg, rgba(46, 16, 84, 0.9), rgba(9, 9, 11, 0.95));
+}
+
+/* Leaderboard rank #1 */
+.rank-one-hero {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.25), rgba(9, 9, 11, 0.9));
+}
+
+.rank-one-row {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.12), rgba(251, 191, 36, 0.04), transparent);
+  box-shadow: inset 3px 0 0 rgba(251, 191, 36, 0.85);
+}
+
+.rank-one-row:hover {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.08), transparent);
+}
+
+.rank-one-crown {
+  animation: crownPulse 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.6));
+}
+
+@keyframes crownPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.live-stats-flash {
+  animation: liveFlash 0.9s ease-out;
+}
+
+@keyframes liveFlash {
+  0% {
+    box-shadow: 0 0 0 rgba(34, 211, 238, 0);
+  }
+  40% {
+    box-shadow: 0 0 28px rgba(34, 211, 238, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(34, 211, 238, 0);
+  }
+}
+
+.leaderboard-row {
+  cursor: pointer;
+  position: relative;
+}
+
+.leaderboard-row-hint::after {
+  content: "Click to view profile";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 9, 11, 0.78);
+  backdrop-filter: blur(2px);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgb(228 228 231);
+  border-radius: 0;
+  pointer-events: none;
 }
