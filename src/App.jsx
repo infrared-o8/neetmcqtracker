@@ -1,18 +1,45 @@
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion } from "framer-motion";
+import { StudySidebar } from "./components/StudySidebar";
+import { YoutubeMedia } from "./components/YoutubeMedia";
 import { Dashboard } from "./pages/Dashboard";
-import { TitleBar } from "./components/TitleBar";
+import { LeaderboardPage } from "./pages/LeaderboardPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { useProfileStore } from "./store/useProfileStore";
 
 const MotionDiv = motion.div;
 
 function App() {
+  const ensurePlayerId = useProfileStore((s) => s.ensurePlayerId);
+  useEffect(() => {
+    ensurePlayerId();
+  }, [ensurePlayerId]);
+
   return (
-    <main className="relative min-h-screen overflow-x-hidden text-zinc-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(168,85,247,0.22),transparent_32%),radial-gradient(circle_at_85%_10%,rgba(34,211,238,0.2),transparent_35%),radial-gradient(circle_at_55%_92%,rgba(244,63,94,0.1),transparent_30%)]" />
-      <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.38 }}>
-        <TitleBar />
-        <Dashboard />
-      </MotionDiv>
-    </main>
+    <BrowserRouter>
+      <main className="relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100">
+        <YoutubeMedia />
+        <div className="mesh-bg pointer-events-none fixed inset-0 -z-10" />
+        <MotionDiv
+          className="relative z-10 flex min-h-0 flex-1 flex-col"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.38 }}
+        >
+          <div className="flex min-h-screen flex-1">
+            <StudySidebar />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Routes>
+            </div>
+          </div>
+        </MotionDiv>
+      </main>
+    </BrowserRouter>
   );
 }
 

@@ -27,28 +27,372 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Premium dark scrollbar */
+.genz-glass {
+  background: rgba(15, 15, 20, 0.65);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.mesh-bg {
+  background-color: #09090b;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 15% 10%, rgba(168, 85, 247, 0.2), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 85% 15%, rgba(34, 211, 238, 0.16), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 50% 95%, rgba(139, 92, 246, 0.12), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 70% 70%, rgba(244, 63, 94, 0.06), transparent 50%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+}
+
+.glow-border {
+  border: 1px solid transparent;
+  background-image: linear-gradient(rgba(15, 15, 20, 0.65), rgba(15, 15, 20, 0.65)),
+    linear-gradient(135deg, #a855f7, #22d3ee, #f43f5e, #a855f7);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+/* Today / Activity stat cards — outline on hover + rank upgrade pulse */
+.stat-highlight-wrap {
+  position: relative;
+  border-radius: 1.5rem;
+  transition: filter 0.35s ease;
+}
+
+.stat-highlight-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(
+    135deg,
+    var(--stat-outline-a, rgba(34, 211, 238, 0.55)),
+    var(--stat-outline-b, rgba(168, 85, 247, 0.45)),
+    var(--stat-outline-c, rgba(34, 211, 238, 0.35))
+  );
+  background-size: 200% 200%;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.stat-highlight-wrap:hover::before {
+  opacity: 1;
+}
+
+.stat-outline-cyan {
+  --stat-outline-a: rgba(34, 211, 238, 0.75);
+  --stat-outline-b: rgba(103, 232, 249, 0.5);
+  --stat-outline-c: rgba(168, 85, 247, 0.4);
+}
+
+.stat-outline-violet {
+  --stat-outline-a: rgba(168, 85, 247, 0.8);
+  --stat-outline-b: rgba(232, 121, 249, 0.55);
+  --stat-outline-c: rgba(34, 211, 238, 0.45);
+}
+
+.stat-highlight-wrap:hover {
+  filter: drop-shadow(0 0 14px var(--stat-glow, rgba(34, 211, 238, 0.25)));
+}
+
+.stat-outline-cyan:hover {
+  --stat-glow: rgba(34, 211, 238, 0.35);
+}
+
+.stat-outline-violet:hover {
+  --stat-glow: rgba(168, 85, 247, 0.35);
+}
+
+.stat-highlight-wrap.stat-rank-pulse::before {
+  opacity: 1;
+  animation: statRankOutline 1.8s ease-in-out infinite;
+}
+
+.stat-highlight-wrap.stat-rank-pulse {
+  filter: drop-shadow(0 0 22px var(--stat-glow, rgba(168, 85, 247, 0.55)));
+}
+
+.stat-highlight-wrap.stat-rank-pulse .genz-glass {
+  animation: statRankInnerGlow 1.8s ease-in-out infinite;
+}
+
+@keyframes statRankOutline {
+  0%,
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.85;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+}
+
+@keyframes statRankInnerGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(168, 85, 247, 0.2),
+      inset 0 0 24px rgba(34, 211, 238, 0.04);
+  }
+  50% {
+    box-shadow:
+      0 0 32px rgba(168, 85, 247, 0.45),
+      0 0 48px rgba(34, 211, 238, 0.2),
+      inset 0 0 32px rgba(244, 63, 94, 0.06);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(34, 211, 238, 0.45));
+  }
+}
+
+.chroma-text {
+  background: linear-gradient(90deg, #a855f7, #22d3ee, #f43f5e, #a855f7);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: chromaShift 4s linear infinite;
+}
+
+@keyframes chromaShift {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+.animate-chroma-border {
+  border: 2px solid transparent;
+  background: linear-gradient(#0f0f14, #0f0f14) padding-box,
+    linear-gradient(90deg, #a855f7, #22d3ee, #f43f5e, #a855f7) border-box;
+  background-size: 300% 100%;
+  animation: chromaShift 3s linear infinite;
+}
+
+.combo-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  color: #fdba74;
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  background: rgba(251, 146, 60, 0.15);
+  animation: comboShake 0.4s ease-in-out infinite;
+}
+
+@keyframes comboShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-1px);
+  }
+  75% {
+    transform: translateX(1px);
+  }
+}
+
+.bento-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .bento-grid {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-areas:
+      "today today total"
+      "today today streak"
+      "rank quick quick"
+      "rank goal speed"
+      "heat heat heat"
+      "ladder ladder ladder"
+      "session session session"
+      "chart chart chart";
+  }
+  .bento-today {
+    grid-area: today;
+  }
+  .bento-total {
+    grid-area: total;
+  }
+  .bento-streak {
+    grid-area: streak;
+  }
+  .bento-rank {
+    grid-area: rank;
+  }
+  .bento-quick {
+    grid-area: quick;
+  }
+  .bento-goal {
+    grid-area: goal;
+  }
+  .bento-speed {
+    grid-area: speed;
+  }
+  .bento-heatmap {
+    grid-area: heat;
+  }
+  .bento-ladder {
+    grid-area: ladder;
+  }
+  .bento-session {
+    grid-area: session;
+  }
+  .bento-chart {
+    grid-area: chart;
+  }
+}
+
+.ambient-viz {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.viz-lofi {
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 8px,
+    rgba(34, 211, 238, 0.15) 8px,
+    rgba(34, 211, 238, 0.15) 9px
+  );
+  animation: vizSine 3s ease-in-out infinite;
+}
+
+@keyframes vizSine {
+  0%,
+  100% {
+    transform: scaleY(0.6);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.viz-synth {
+  background: linear-gradient(
+    90deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(168, 85, 247, 0.2) 20%,
+    transparent 20%,
+    transparent 25%,
+    rgba(244, 63, 94, 0.2) 25%,
+    rgba(244, 63, 94, 0.2) 45%,
+    transparent 45%
+  );
+  background-size: 40px 100%;
+  animation: vizBars 0.8s steps(4) infinite;
+}
+
+@keyframes vizBars {
+  to {
+    background-position: 40px 0;
+  }
+}
+
+.viz-rain {
+  background-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(34, 211, 238, 0.2) 50%,
+    transparent 100%
+  );
+  background-size: 2px 12px;
+  animation: vizRain 0.6s linear infinite;
+}
+
+@keyframes vizRain {
+  to {
+    background-position: 0 12px;
+  }
+}
+
+.viz-noise {
+  opacity: 0.2;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+.milestone-particles::before,
+.showcase-particles::before {
+  content: "";
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 70%);
+  animation: particleBurst 1.2s ease-out forwards;
+}
+
+@keyframes particleBurst {
+  from {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.showcase-sheen {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 60%
+  );
+  animation: sheenMove 2s ease-in-out infinite;
+}
+
+@keyframes sheenMove {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(34, 211, 238, 0.55) rgba(24, 24, 27, 0.7);
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-*::-webkit-scrollbar-track {
-  background: rgba(24, 24, 27, 0.7);
-  border-radius: 9999px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(168, 85, 247, 0.9), rgba(34, 211, 238, 0.85));
   border-radius: 9999px;
-  border: 2px solid rgba(24, 24, 27, 0.7);
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(192, 132, 252, 0.95), rgba(103, 232, 249, 0.9));
 }

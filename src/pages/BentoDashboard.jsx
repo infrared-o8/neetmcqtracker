@@ -1,0 +1,357 @@
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import Confetti from "react-confetti";
+import { GoalRing } from "../components/GoalRing";
+import { HistoryChart } from "../components/HistoryChart";
+import { QuickAddControls } from "../components/QuickAddControls";
+import { ContributionGrid } from "../components/ContributionGrid";
+import { RankLadder } from "../components/RankLadder";
+import { GlowCard } from "../components/ui/GlowCard";
+import { StatGlowCard } from "../components/ui/StatGlowCard";
+import { useRankUpgradePulse } from "../hooks/useRankUpgradePulse";
+import { RollingNumber } from "../components/ui/RollingNumber";
+import { MilestoneReveal } from "../components/MilestoneReveal";
+import { useTrackerStore } from "../store/useTrackerStore";
+import { useMicroRewards } from "../hooks/useMicroRewards";
+import { useLeaderboardSync } from "../hooks/useLeaderboardSync";
+import { useMilestones } from "../hooks/useMilestones";
+import {
+  getActivityTotal,
+  getLevelFromXp,
+  getMotivationMessage,
+  getRankProgress,
+  getRollingMcqSpeed,
+  getTodayKey,
+} from "../utils/gamification";
+
+const MotionDiv = motion.div;
+
+function buildHistory(dailyLogs, dailyPageLogs, days = 14) {
+  const today = new Date();
+  return Array.from({ length: days }, (_, idx) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (days - idx - 1));
+    const key = d.toISOString().slice(0, 10);
+    const mcq = dailyLogs[key] ?? 0;
+    const pages = dailyPageLogs[key] ?? 0;
+    return { label: key.slice(5), value: mcq + pages };
+  });
+}
+
+export function BentoDashboard() {
+  const totalSolved = useTrackerStore((s) => s.totalSolved);
+  const totalPagesRead = useTrackerStore((s) => s.totalPagesRead);
+  const dailyLogs = useTrackerStore((s) => s.dailyLogs);
+  const dailyPageLogs = useTrackerStore((s) => s.dailyPageLogs);
+  const streak = useTrackerStore((s) => s.streak);
+  const bestStreak = useTrackerStore((s) => s.bestStreak);
+  const xp = useTrackerStore((s) => s.xp);
+  const dailyGoal = useTrackerStore((s) => s.dailyGoal);
+  const dailyPageGoal = useTrackerStore((s) => s.dailyPageGoal);
+  const goalCompletedToday = useTrackerStore((s) => s.goalCompletedToday);
+  const pageGoalCompletedToday = useTrackerStore((s) => s.pageGoalCompletedToday);
+  const trackingMode = useTrackerStore((s) => s.trackingMode);
+  const ensureToday = useTrackerStore((s) => s.ensureToday);
+  const addMcq = useTrackerStore((s) => s.addMcq);
+  const addPages = useTrackerStore((s) => s.addPages);
+  const setDailyGoal = useTrackerStore((s) => s.setDailyGoal);
+  const setDailyPageGoal = useTrackerStore((s) => s.setDailyPageGoal);
+  const clearAll = useTrackerStore((s) => s.clearAll);
+  const mcqTimestamps = useTrackerStore((s) => s.mcqTimestamps);
+  const pageTimestamps = useTrackerStore((s) => s.pageTimestamps);
+  const momentumChain = useTrackerStore((s) => s.momentumChain);
+  const bestMomentumChain = useTrackerStore((s) => s.bestMomentumChain);
+  const breakWarning = useTrackerStore((s) => s.breakWarning);
+  const velocityTarget = useTrackerStore((s) => s.velocityTarget);
+  const setVelocityTarget = useTrackerStore((s) => s.setVelocityTarget);
+  const session = useTrackerStore((s) => s.session);
+  const lastSessionSummary = useTrackerStore((s) => s.lastSessionSummary);
+  const startSession = useTrackerStore((s) => s.startSession);
+  const endSession = useTrackerStore((s) => s.endSession);
+  const checkInactivity = useTrackerStore((s) => s.checkInactivity);
+
+  const { onIncrement, playLevelUp } = useMicroRewards();
+  const { scheduleSync } = useLeaderboardSync();
+  const { activeMilestone, dismissMilestone } = useMilestones();
+  const { pulsing: rankPulse } = useRankUpgradePulse();
+
+  const [burst, setBurst] = useState(0);
+  const [windowSize, setWindowSize] = useState({ width: 1200, height: 760 });
+  const [clockTick, setClockTick] = useState(() => Date.now());
+  const [prevLevel, setPrevLevel] = useState(1);
+
+  const today = getTodayKey();
+  const todaySolved = dailyLogs[today] ?? 0;
+  const todayPages = dailyPageLogs[today] ?? 0;
+  const activityTotal = getActivityTotal(totalSolved, totalPagesRead);
+  const levelData = getLevelFromXp(xp);
+  const rankProgress = getRankProgress(activityTotal);
+  const isPages = trackingMode === "pages";
+  const todayCount = isPages ? todayPages : todaySolved;
+  const dailyTarget = isPages ? dailyPageGoal : dailyGoal;
+  const goalMet = isPages ? pageGoalCompletedToday : goalCompletedToday;
+  const timestamps = isPages ? pageTimestamps : mcqTimestamps;
+  const currentSpeed = getRollingMcqSpeed(timestamps);
+  const speedLabel = isPages ? "pages/hr" : "MCQs/hr";
+  const motivation = getMotivationMessage({
+    todaySolved,
+    todayPages,
+    streak,
+    activityTotal,
+    dailyGoal,
+    dailyPageGoal,
+    trackingMode,
+  });
+
+  const isCombo = momentumChain >= 2;
+  const sessionSolved = session.active ? Math.max(totalSolved - session.startSolved, 0) : 0;
+  const sessionMinutesLeft = session.active
+    ? Math.max(Math.ceil((session.endAt - clockTick) / (1000 * 60)), 0)
+    : 0;
+
+  useEffect(() => {
+    ensureToday();
+  }, [ensureToday]);
+
+  useEffect(() => {
+    if (levelData.level > prevLevel) {
+      playLevelUp();
+      setPrevLevel(levelData.level);
+    }
+  }, [levelData.level, prevLevel, playLevelUp]);
+
+  useEffect(() => {
+    const onResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setClockTick(Date.now());
+      checkInactivity();
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [checkInactivity]);
+
+  const handleAdd = useCallback(
+    (amount = 1) => {
+      if (isPages) addPages(amount);
+      else addMcq(amount);
+      onIncrement();
+      scheduleSync();
+      setBurst((v) => v + 1);
+    },
+    [isPages, addPages, addMcq, onIncrement, scheduleSync],
+  );
+
+  const history = useMemo(
+    () => buildHistory(dailyLogs, dailyPageLogs, 14),
+    [dailyLogs, dailyPageLogs],
+  );
+
+  return (
+    <div
+      className={`relative px-5 pb-10 pt-6 transition-all duration-300 ${
+        breakWarning ? "brightness-75 saturate-75" : ""
+      }`}
+    >
+      <AnimatePresence>
+        {goalMet && (
+          <Confetti
+            key={burst}
+            width={windowSize.width}
+            height={windowSize.height}
+            recycle={false}
+            numberOfPieces={180}
+            gravity={0.18}
+          />
+        )}
+      </AnimatePresence>
+      <MilestoneReveal milestone={activeMilestone} onDismiss={dismissMilestone} />
+
+      <MotionDiv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        {breakWarning && (
+          <p className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-500/12 px-4 py-3 text-sm text-rose-200">
+            Momentum dying... Resume within 10 min to keep the combo.
+          </p>
+        )}
+
+        <div className="bento-grid">
+          <StatGlowCard
+            outline="cyan"
+            rankPulse={rankPulse}
+            goalGlow={goalMet}
+            className="bento-today md:col-span-2"
+          >
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
+              Today · {isPages ? "Pages" : "MCQs"}
+            </p>
+            <p className="mt-2 text-5xl font-semibold text-white">
+              <RollingNumber value={todayCount} />
+            </p>
+            {isCombo && (
+              <span className="combo-badge mt-2 inline-block">Combo ×{Math.min(momentumChain, 99)}</span>
+            )}
+          </StatGlowCard>
+
+          <StatGlowCard outline="violet" rankPulse={rankPulse} className="bento-total">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-violet-200/90">
+              Activity total
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-white">
+              <RollingNumber value={activityTotal} />
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {totalSolved} MCQs · {totalPagesRead} pages
+            </p>
+          </StatGlowCard>
+
+          <GlowCard className="bento-streak">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Streak</p>
+            <p className="mt-2 text-4xl font-semibold text-orange-300">
+              <RollingNumber value={streak} />d
+            </p>
+            <p className="text-xs text-zinc-500">Best: {bestStreak}d</p>
+          </GlowCard>
+
+          <GlowCard className="bento-rank md:row-span-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Rank</p>
+            <p className="mt-2 text-xl font-semibold chroma-text">{rankProgress.currentRank.label}</p>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
+              <MotionDiv
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-400"
+                animate={{ width: `${rankProgress.progressPercent}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-zinc-400">
+              {rankProgress.nextRank
+                ? `${rankProgress.remainingToNext} to ${rankProgress.nextRank.label}`
+                : "Max rank"}
+            </p>
+            <div className="mt-4">
+              <p className="text-xs text-zinc-500">Level {levelData.level}</p>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  className="h-full bg-gradient-to-r from-fuchsia-500 to-cyan-400"
+                  style={{
+                    width: `${(levelData.xpIntoLevel / Math.max(levelData.xpForNextLevel, 1)) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </GlowCard>
+
+          <GlowCard glow={goalMet} className="bento-quick md:col-span-2 md:row-span-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Quick add</p>
+            <QuickAddControls
+              onAdd={handleAdd}
+              label={isPages ? "Page" : "MCQ"}
+              showCombo={isCombo}
+              comboCount={momentumChain}
+            />
+          </GlowCard>
+
+          <GlowCard glow={goalMet} className="bento-goal">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Daily goal</p>
+            <div className="mt-3 flex items-center gap-4">
+              <GoalRing value={todayCount} max={dailyTarget} />
+              <div className="flex-1">
+                <label className="text-xs text-zinc-500">
+                  Target {isPages ? "pages" : "MCQs"}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={isPages ? dailyPageGoal : dailyGoal}
+                  onChange={(e) =>
+                    isPages
+                      ? setDailyPageGoal(Number(e.target.value || 0))
+                      : setDailyGoal(Number(e.target.value || 0))
+                  }
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+            <p className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+              {motivation}
+            </p>
+          </GlowCard>
+
+          <GlowCard className="bento-speed">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Speed</p>
+            <p className="mt-1 text-2xl font-bold">
+              {currentSpeed} <span className="text-sm text-zinc-400">{speedLabel}</span>
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">Best combo: {bestMomentumChain}</p>
+            <input
+              type="number"
+              min={10}
+              value={velocityTarget}
+              onChange={(e) => setVelocityTarget(Number(e.target.value || 0))}
+              className="mt-2 w-full rounded-lg border border-white/10 bg-zinc-900/60 px-2 py-1 text-sm text-white"
+            />
+          </GlowCard>
+
+          <GlowCard className="bento-heatmap md:col-span-2">
+            <p className="mb-3 text-xs uppercase tracking-[0.22em] text-zinc-400">Study density</p>
+            <ContributionGrid dailyLogs={dailyLogs} dailyPageLogs={dailyPageLogs} weeks={26} />
+          </GlowCard>
+
+          <div className="bento-ladder md:col-span-2">
+            <RankLadder activityTotal={activityTotal} />
+          </div>
+
+          <GlowCard className="bento-session md:col-span-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Session mode</p>
+            {!session.active ? (
+              <div className="mt-2 flex gap-2">
+                {[25, 45, 60].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => startSession(m)}
+                    className="rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-100"
+                  >
+                    {m}m
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-zinc-300">
+                {sessionMinutesLeft}m left · {sessionSolved} MCQs
+                <button
+                  type="button"
+                  onClick={endSession}
+                  className="ml-2 text-rose-300 underline"
+                >
+                  End
+                </button>
+              </p>
+            )}
+            {lastSessionSummary && (
+              <p className="mt-2 text-xs text-emerald-300">
+                Last: {lastSessionSummary.solved} in {lastSessionSummary.elapsedMinutes}m
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Reset all progress?")) clearAll();
+              }}
+              className="mt-4 w-full rounded-xl border border-rose-400/25 py-2 text-xs text-rose-200"
+            >
+              Reset progress
+            </button>
+          </GlowCard>
+
+          <GlowCard className="bento-chart md:col-span-3">
+            <p className="mb-3 text-xs uppercase tracking-[0.22em] text-zinc-400">14-day history</p>
+            <HistoryChart data={history} />
+          </GlowCard>
+        </div>
+      </MotionDiv>
+    </div>
+  );
+}

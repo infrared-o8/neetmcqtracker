@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "npx concurrently -n server,web -c cyan,magenta \"npm run server\" \"npm run dev\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "server": "node server/index.js",
+    "server:dev": "node --watch server/index.js",
+    "server:stop": "npx --yes kill-port 3847",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
@@ -15,11 +19,14 @@
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
     "clsx": "^2.1.1",
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.8.0",
     "react": "^19.2.4",
     "react-confetti": "^6.4.0",
     "react-dom": "^19.2.4",
+    "react-router-dom": "^7.15.1",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.12"
