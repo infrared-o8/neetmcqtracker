@@ -17,6 +17,7 @@ import { FaceStudyTopBar } from "../components/study/FaceStudyTopBar";
 import { StudyCameraCard } from "../components/study/StudyCameraCard";
 import { LiveMarquee } from "../components/LiveMarquee";
 import { useTrackerStore } from "../store/useTrackerStore";
+import { useProfileStore } from "../store/useProfileStore";
 import { useMicroRewards } from "../hooks/useMicroRewards";
 import { useLeaderboardSync } from "../hooks/useLeaderboardSync";
 import { useMilestones } from "../hooks/useMilestones";
@@ -29,6 +30,9 @@ import {
   getRollingMcqSpeed,
   getTodayKey,
 } from "../utils/gamification";
+
+import { CaseUnlockView } from "../components/dashboard/CaseUnlockView";
+import { checkDropEligibility } from "../utils/lootEngine";
 
 const MotionDiv = motion.div;
 
@@ -88,15 +92,20 @@ export function BentoDashboard() {
   const { pulsing: rankPulse, pulseKey: rankPulseKey, rankLabel: unlockedRankLabel, dismiss: dismissRankPulse } =
     useRankUpgradePulse();
 
+  const activityTotal = getActivityTotal(totalSolved, totalPagesRead, studyMinutes);
+
   const [burst, setBurst] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 1200, height: 760 });
   const [clockTick, setClockTick] = useState(() => Date.now());
   const [prevLevel, setPrevLevel] = useState(1);
+  const pendingCrates = useProfileStore((s) => s.pendingCrates);
+  const removeFirstPendingCrate = useProfileStore((s) => s.removeFirstPendingCrate);
+  const addPendingCrate = useProfileStore((s) => s.addPendingCrate);
+  const [prevAp, setPrevAp] = useState(activityTotal);
 
   const today = getTodayKey();
   const todaySolved = dailyLogs[today] ?? 0;
   const todayPages = dailyPageLogs[today] ?? 0;
-  const activityTotal = getActivityTotal(totalSolved, totalPagesRead, studyMinutes);
   const levelData = getLevelFromXp(xp);
   const rankProgress = getRankProgress(activityTotal);
   const isPages = trackingMode === "pages";
@@ -144,9 +153,21 @@ export function BentoDashboard() {
     const id = window.setInterval(() => {
       setClockTick(Date.now());
       checkInactivity();
+
+      // Kota Star Batch Crate Check: 3-hour continuous focus (180 mins)
+      if (session.active && !session.crateAwarded) {
+        const elapsedMins = (Date.now() - session.startAt) / (1000 * 60);
+        if (elapsedMins >= 180) {
+          setPendingCrate('STAR_BATCH');
+          // Update store to prevent double-awarding in same session
+          useTrackerStore.setState((s) => ({
+            session: { ...s.session, crateAwarded: true }
+          }));
+        }
+      }
     }, 1000);
     return () => window.clearInterval(id);
-  }, [checkInactivity]);
+  }, [checkInactivity, session]);
 
   const handleAdd = useCallback(
     (amount = 1) => {
@@ -166,6 +187,14 @@ export function BentoDashboard() {
 
   const isMinimized = (id) => minimizedWidgets.includes(id);
 
+  useEffect(() => {
+    const drop = checkDropEligibility(prevAp, activityTotal, preferences.devModeEnabled);
+    if (drop) {
+      addPendingCrate(drop);
+    }
+    setPrevAp(activityTotal);
+  }, [activityTotal, prevAp, preferences.devModeEnabled, addPendingCrate]);
+
   return (
     <div
       className={`relative px-5 pb-10 pt-6 transition-all duration-300 ${
@@ -173,6 +202,12 @@ export function BentoDashboard() {
       }`}
     >
       <AnimatePresence>
+        {pendingCrates.length > 0 && (
+          <CaseUnlockView 
+            crateType={pendingCrates[0]} 
+            onDismiss={removeFirstPendingCrate} 
+          />
+        )}
         {(goalMet || rankPulse) && (
           <Confetti
             key={`${burst}-${rankPulseKey}`}

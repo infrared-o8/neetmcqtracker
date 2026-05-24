@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate, Cloud, BookOpen, Video } from "lucide-react";
+import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate, Cloud, BookOpen, Video, User } from "lucide-react";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { PixelCompanion } from "./PixelCompanion";
 import { useAmbientAudio } from "../hooks/useAmbientAudio";
@@ -66,6 +66,10 @@ export function StudySidebar() {
         <NavLink to="/leaderboard" className={navClass}>
           <Trophy className="h-4 w-4" />
           Leaderboard
+        </NavLink>
+        <NavLink to="/profile" className={navClass}>
+          <User className="h-4 w-4" />
+          Profile Hub
         </NavLink>
         <NavLink to="/study-room" className={navClass}>
           <Video className="h-4 w-4" />

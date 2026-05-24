@@ -7,6 +7,7 @@ import { ThemeBackground } from "./components/ThemeBackground";
 import { Dashboard } from "./pages/Dashboard";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import ProfilePage from "./pages/ProfilePage";
 import StudyRoomPage from "./pages/StudyRoomPage";
 import { useProfileStore } from "./store/useProfileStore";
 import { useTrackerStore } from "./store/useTrackerStore";
@@ -58,6 +59,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/study-room" element={<StudyRoomPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>

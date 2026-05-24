@@ -11,6 +11,9 @@ const initialState = {
   displayName: "Aspirant",
   decor: { ...DEFAULT_DECOR },
   lastSyncedAt: 0,
+  unlockedItems: [], // Array of { id, type, label, rarity, style }
+  pendingCrates: [], // Queue of strings e.g. ['ASH_STASH', 'STAR_BATCH']
+  totalCratesOpened: 0,
 };
 
 export const useProfileStore = create(
@@ -28,6 +31,16 @@ export const useProfileStore = create(
           decor: { ...s.decor, ...partial },
         })),
       setLastSyncedAt: (ts) => set({ lastSyncedAt: ts }),
+      addUnlockedItem: (item) => set((state) => ({
+        unlockedItems: [...state.unlockedItems, item],
+        totalCratesOpened: state.totalCratesOpened + 1
+      })),
+      addPendingCrate: (crateType) => set((state) => ({
+        pendingCrates: [...state.pendingCrates, crateType]
+      })),
+      removeFirstPendingCrate: () => set((state) => ({
+        pendingCrates: state.pendingCrates.slice(1)
+      })),
     }),
     {
       name: "neet-tracker-profile-v1",
@@ -37,6 +50,9 @@ export const useProfileStore = create(
         displayName: s.displayName,
         decor: s.decor,
         lastSyncedAt: s.lastSyncedAt,
+        unlockedItems: s.unlockedItems,
+        pendingCrates: s.pendingCrates,
+        totalCratesOpened: s.totalCratesOpened,
       }),
     },
   ),
