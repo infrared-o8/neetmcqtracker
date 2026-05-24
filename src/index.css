@@ -675,6 +675,25 @@ body {
   background: linear-gradient(180deg, #1a1612 0%, #1f1a15 50%, #241e18 100%);
 }
 
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 15s linear infinite;
+}
+
+@keyframes live-ping {
+  0% { transform: scale(1); opacity: 0.8; }
+  70%, 100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-live-ping {
+  animation: live-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 .library-bg .mesh-bg {
   background-image:
     radial-gradient(ellipse 80% 60% at 15% 10%, rgba(205, 133, 63, 0.15), transparent 50%),

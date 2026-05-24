@@ -1,10 +1,14 @@
 import express from "express";
 import cors from "cors";
 import os from "os";
+import "dotenv/config";
+import { AccessToken } from "livekit-server-sdk";
 import { db, getLeaderboard, getPlayer, updateStats, upsertPlayer } from "./db.js";
 
 const PORT = Number(process.env.PORT) || 3847;
 const SERVER_PIN = process.env.SERVER_PIN || "";
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "devkey";
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || "secret";
 
 const app = express();
 
@@ -50,6 +54,21 @@ function requirePlayer(req, res, next) {
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, time: Date.now(), port: PORT });
+});
+
+app.post("/api/livekit/token", async (req, res) => {
+  const { playerName, roomName } = req.body;
+  if (!playerName) {
+    return res.status(400).json({ error: "playerName is required" });
+  }
+
+  const room = roomName || "NEET-Study-Room";
+  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+    identity: playerName,
+  });
+  at.addGrant({ roomJoin: true, room: room, canPublish: true, canSubscribe: true });
+
+  res.json({ token: await at.toJwt() });
 });
 
 app.post("/api/players/register", requirePin, (req, res) => {

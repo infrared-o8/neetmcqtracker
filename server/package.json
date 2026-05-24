@@ -2,6 +2,8 @@
   "type": "module",
   "dependencies": {
     "better-sqlite3": "^12.10.0",
-    "cors": "^2.8.6"
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "livekit-server-sdk": "^2.15.3"
   }
 }
