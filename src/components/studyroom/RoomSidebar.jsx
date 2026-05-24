@@ -37,6 +37,8 @@ export function RoomSidebar({ participantCount = 0 }) {
       const metadata = JSON.stringify({
         task: taskDraft,
         isBreak: isBreakMode,
+        isMirrored: mirrorVideo,
+        isCamOff: isCamOff,
         rank: 'Elite Aspirant'
       });
       localParticipant.setMetadata(metadata);
@@ -48,7 +50,7 @@ export function RoomSidebar({ participantCount = 0 }) {
 
   useEffect(() => {
     updateMetadata();
-  }, [isBreakMode]);
+  }, [isBreakMode, mirrorVideo, isCamOff]);
 
   return (
     <div className="flex w-full flex-col gap-6 p-4">

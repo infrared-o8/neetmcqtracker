@@ -3,25 +3,34 @@ import {
   VideoTrack, 
   useParticipantInfo,
   ParticipantContext,
-  TrackRefContext
+  TrackRefContext,
+  useRoomContext
 } from '@livekit/components-react';
-import { Track } from 'livekit-client';
+import { Track, RoomEvent, DataPacket_Kind } from 'livekit-client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Coffee, User, Flame, Zap } from 'lucide-react';
+import { Pin, Coffee, User, Flame, Zap, Bell } from 'lucide-react';
 import { useLiveRoomStore } from '../../store/useLiveRoomStore';
 import { useThock } from '../../hooks/useThock';
-import { useState, useContext } from 'react';
+import { useState, useEffect } from 'react';
 
 export function ParticipantTile({ trackRef }) {
   const participant = trackRef.participant;
+  const room = useRoomContext();
   const { identity, metadata } = useParticipantInfo({ participant });
-  const { pinnedUsers, togglePin, mirrorVideo } = useLiveRoomStore();
+  const { pinnedUsers, togglePin } = useLiveRoomStore();
   const playThock = useThock();
   const [showFistEffect, setShowFistEffect] = useState(false);
+  const [showBoostNote, setShowBoostNote] = useState(null);
 
   const isPinned = pinnedUsers.includes(identity);
   const parsedMetadata = metadata ? JSON.parse(metadata) : {};
-  const { task = 'Grinding Modules...', isBreak = false, rank = 'Aspirant' } = parsedMetadata;
+  const { 
+    task = 'Grinding Modules...', 
+    isBreak = false, 
+    rank = 'Aspirant',
+    isMirrored = false,
+    isCamOff = false
+  } = parsedMetadata;
 
   const handlePin = () => {
     togglePin(identity);
@@ -32,8 +41,41 @@ export function ParticipantTile({ trackRef }) {
     e.stopPropagation();
     setShowFistEffect(true);
     setTimeout(() => setShowFistEffect(false), 2000);
-    // In a real app, you'd emit a LiveKit data message here
+    
+    // Publish boost data to the room
+    if (room && !participant.isLocal) {
+      const payload = JSON.stringify({ type: 'boost', target: identity, from: room.localParticipant.identity });
+      const encoder = new TextEncoder();
+      room.localParticipant.publishData(encoder.encode(payload), {
+        kind: DataPacket_Kind.RELIABLE,
+        destinationIdentities: [identity]
+      });
+    }
   };
+
+  useEffect(() => {
+    if (!room || !participant.isLocal) return;
+
+    const handleData = (payload, fromParticipant) => {
+      const decoder = new TextDecoder();
+      try {
+        const data = JSON.parse(decoder.decode(payload));
+        if (data.type === 'boost' && data.target === room.localParticipant.identity) {
+          setShowFistEffect(true);
+          setShowBoostNote(fromParticipant?.identity || 'Someone');
+          setTimeout(() => setShowFistEffect(false), 2000);
+          setTimeout(() => setShowBoostNote(null), 4000);
+        }
+      } catch (e) {
+        console.warn('Failed to parse boost data:', e);
+      }
+    };
+
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+    };
+  }, [room, participant.isLocal]);
 
   return (
     <motion.div 
@@ -47,10 +89,27 @@ export function ParticipantTile({ trackRef }) {
       <div className={`h-full w-full transition-opacity duration-500 ${isBreak ? 'opacity-40' : 'opacity-100'}`}>
         <ParticipantContext.Provider value={participant}>
           <TrackRefContext.Provider value={trackRef}>
-            <CustomVideoTrack identity={identity} isLocal={participant.isLocal} />
+            <CustomVideoTrack identity={identity} isLocal={participant.isLocal} isMirrored={isMirrored} isCamOff={isCamOff} />
           </TrackRefContext.Provider>
         </ParticipantContext.Provider>
       </div>
+
+      {/* Boost Notification Overlay */}
+      <AnimatePresence>
+        {showBoostNote && (
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-2 rounded-xl bg-fuchsia-500 px-4 py-2 shadow-lg shadow-fuchsia-500/40"
+          >
+            <Bell className="h-4 w-4 animate-bounce text-white" />
+            <span className="text-xs font-bold text-white uppercase tracking-wider">
+              {showBoostNote} boosted your grind!
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Break Mode Overlay */}
       {isBreak && (
@@ -123,12 +182,11 @@ export function ParticipantTile({ trackRef }) {
   );
 }
 
-function CustomVideoTrack({ identity, isLocal }) {
-  const { mirrorVideo } = useLiveRoomStore();
+function CustomVideoTrack({ identity, isLocal, isMirrored, isCamOff }) {
   const trackRef = useTrackRefContext();
   
-  // If track is missing or muted, show placeholder
-  if (!trackRef || trackRef.publication?.isMuted) {
+  // If track is missing or muted or isCamOff is true, show placeholder
+  if (!trackRef || trackRef.publication?.isMuted || isCamOff) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-900/80">
         <div className="relative">
@@ -152,8 +210,9 @@ function CustomVideoTrack({ identity, isLocal }) {
       trackRef={trackRef} 
       className="h-full w-full object-cover" 
       style={{ 
-        transform: (isLocal && mirrorVideo) ? 'scaleX(-1)' : 'none' 
+        transform: isMirrored ? 'scaleX(-1)' : 'none' 
       }} 
     />
   );
 }
+
