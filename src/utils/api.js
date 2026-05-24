@@ -12,7 +12,11 @@ export function normalizeServerUrl(input) {
 
   try {
     const url = new URL(s);
-    if (!url.port) {
+    // Only add default port if it's missing AND it's not https/ngrok
+    const isNgrok = url.hostname.includes("ngrok");
+    const isHttps = url.protocol === "https:";
+
+    if (!url.port && !isHttps && !isNgrok) {
       url.port = String(DEFAULT_PORT);
     }
     if (url.protocol !== "http:" && url.protocol !== "https:") {
