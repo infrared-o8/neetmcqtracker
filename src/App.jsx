@@ -43,7 +43,7 @@ function App() {
   return (
     <BrowserRouter>
       <FaceStudyProvider>
-      <main className="relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100">
+      <main className={`relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100 ${preferences.uiOptimized ? 'ui-optimized' : ''} ${preferences.disableAnimations ? 'no-animations' : ''}`}>
         <YoutubeMedia />
         <ThemeBackground cozyPreset={preferences.cozyPreset} />
         <MotionDiv

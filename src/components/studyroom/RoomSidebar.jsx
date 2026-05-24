@@ -6,12 +6,16 @@ import {
   Zap, 
   Coffee, 
   Send,
-  Users
+  Users,
+  Settings2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useLiveRoomStore } from '../../store/useLiveRoomStore';
 import { useState, useEffect } from 'react';
 import { useLocalParticipant, useRoomContext } from '@livekit/components-react';
 import { ConnectionState } from 'livekit-client';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function RoomSidebar({ participantCount = 0 }) {
   const { 
@@ -30,6 +34,7 @@ export function RoomSidebar({ participantCount = 0 }) {
   const { localParticipant } = useLocalParticipant();
   const room = useRoomContext();
   const [taskDraft, setTaskDraft] = useState(currentTask);
+  const [showSettings, setShowSettings] = useState(false);
 
   const updateMetadata = () => {
     if (!localParticipant || room.state !== ConnectionState.Connected) return;
@@ -53,7 +58,7 @@ export function RoomSidebar({ participantCount = 0 }) {
   }, [isBreakMode, mirrorVideo, isCamOff]);
 
   return (
-    <div className="flex w-full flex-col gap-6 p-4">
+    <div className="flex w-full flex-col gap-6 p-4 pb-20">
       {/* Live Occupancy Meter */}
       <div className="flex items-center gap-3 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20 p-4">
         <div className="relative">
@@ -108,43 +113,65 @@ export function RoomSidebar({ participantCount = 0 }) {
         />
       </div>
 
-      {/* Settings Deck */}
-      <div className="space-y-4 rounded-2xl bg-zinc-900/40 border border-white/5 p-4">
-        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Atmospheric Deck</p>
-        
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-zinc-400">Mirror Feed</span>
-          <button 
-            onClick={() => setMirrorVideo(!mirrorVideo)}
-            className={`h-5 w-10 rounded-full transition relative ${mirrorVideo ? 'bg-fuchsia-500' : 'bg-zinc-700'}`}
-          >
-            <div className={`absolute top-1 h-3 w-3 rounded-full bg-white transition-all ${mirrorVideo ? 'right-1' : 'left-1'}`} />
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          <span className="text-xs text-zinc-400">Resolution Gatekeeper</span>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setVideoResolution('high')}
-              className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-[10px] font-bold uppercase transition ${
-                videoResolution === 'high' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'bg-white/5 text-zinc-500 border border-transparent'
-              }`}
-            >
-              <Zap className="h-3 w-3" />
-              High
-            </button>
-            <button 
-              onClick={() => setVideoResolution('low')}
-              className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-[10px] font-bold uppercase transition ${
-                videoResolution === 'low' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-zinc-500 border border-transparent'
-              }`}
-            >
-              <Battery className="h-3 w-3" />
-              Saver
-            </button>
+      {/* Settings Deck - Collapsible */}
+      <div className="space-y-2">
+        <button 
+          onClick={() => setShowSettings(!showSettings)}
+          className="flex w-full items-center justify-between rounded-xl bg-zinc-900/40 border border-white/5 p-4 text-xs font-bold text-zinc-400 hover:text-white transition group"
+        >
+          <div className="flex items-center gap-2">
+            <Settings2 className={`h-4 w-4 transition-transform duration-500 ${showSettings ? 'rotate-90 text-fuchsia-400' : ''}`} />
+            <span className="uppercase tracking-widest">Atmospheric Deck</span>
           </div>
-        </div>
+          {showSettings ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4 text-zinc-600" />}
+        </button>
+
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-4 rounded-2xl bg-zinc-900/40 border border-white/5 p-4 mt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">Mirror Feed</span>
+                  <button 
+                    onClick={() => setMirrorVideo(!mirrorVideo)}
+                    className={`h-5 w-10 rounded-full transition relative ${mirrorVideo ? 'bg-fuchsia-500' : 'bg-zinc-700'}`}
+                  >
+                    <div className={`absolute top-1 h-3 w-3 rounded-full bg-white transition-all ${mirrorVideo ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs text-zinc-400">Resolution Gatekeeper</span>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setVideoResolution('high')}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-[10px] font-bold uppercase transition ${
+                        videoResolution === 'high' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' : 'bg-white/5 text-zinc-500 border border-transparent'
+                      }`}
+                    >
+                      <Zap className="h-3 w-3" />
+                      High
+                    </button>
+                    <button 
+                      onClick={() => setVideoResolution('low')}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-[10px] font-bold uppercase transition ${
+                        videoResolution === 'low' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-zinc-500 border border-transparent'
+                      }`}
+                    >
+                      <Battery className="h-3 w-3" />
+                      Saver
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -165,3 +192,4 @@ function ToggleButton({ active, onClick, icon: Icon, label }) {
     </button>
   );
 }
+

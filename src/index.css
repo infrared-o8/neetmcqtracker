@@ -694,6 +694,51 @@ body {
   animation: live-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
+/* UI Optimization Mode */
+.ui-optimized *,
+.ui-optimized *::before,
+.ui-optimized *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+.ui-optimized .mesh-bg,
+.ui-optimized .glow-effect {
+  display: none !important;
+}
+
+.ui-optimized .genz-glass {
+  background: rgba(24, 24, 27, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* High-Performance: No Animations Mode */
+.no-animations *,
+.no-animations *::before,
+.no-animations *::after {
+  transition: none !important;
+  animation: none !important;
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+.no-animations *:hover {
+  transform: none !important;
+  filter: none !important;
+}
+
+.no-animations .stat-highlight-wrap::before,
+.no-animations .speed-highlight-wrap::before,
+.no-animations .glow-effect,
+.no-animations .rank-unlock-shimmer,
+.no-animations .showcase-sheen {
+  display: none !important;
+}
+
 .library-bg .mesh-bg {
   background-image:
     radial-gradient(ellipse 80% 60% at 15% 10%, rgba(205, 133, 63, 0.15), transparent 50%),

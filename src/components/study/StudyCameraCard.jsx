@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { GlowCard } from "../ui/GlowCard";
 import { useFaceStudyContext } from "../../hooks/useFaceStudyContext";
 import { useTrackerStore } from "../../store/useTrackerStore";
@@ -5,6 +6,8 @@ import { useTrackerStore } from "../../store/useTrackerStore";
 export function StudyCameraCard({ id, minimized, onToggleMinimize }) {
   const studyMinutes = useTrackerStore((s) => s.studyMinutes);
   const studyMinutesToday = useTrackerStore((s) => s.studyMinutesToday);
+  const showAiSelfView = useTrackerStore((s) => s.preferences.showAiSelfView);
+  
   const {
     videoRef,
     active,
@@ -17,6 +20,11 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize }) {
     startCamera,
     stopCamera,
   } = useFaceStudyContext();
+
+  // Auto-restart on mount
+  useEffect(() => {
+    startCamera();
+  }, []);
 
   return (
     <GlowCard 
@@ -43,13 +51,21 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize }) {
         </div>
       </div>
 
-      <div className="relative mt-3 aspect-video overflow-hidden rounded-xl border border-white/10 bg-black/80">
+      <div className={`relative mt-3 aspect-video overflow-hidden rounded-xl border border-white/10 bg-black/80 ${!showAiSelfView && active ? 'opacity-20 grayscale grayscale-100' : ''}`}>
         <video
           ref={videoRef}
-          className={`h-full w-full object-cover mirror-video ${active ? "" : "hidden"}`}
+          className={`h-full w-full object-cover mirror-video ${active ? "" : "hidden"} ${!showAiSelfView ? "invisible absolute" : ""}`}
           playsInline
           muted
         />
+        
+        {!showAiSelfView && active && (
+          <div className="flex h-full flex-col items-center justify-center gap-2 bg-zinc-900/40">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+            <p className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest">Sensors Active</p>
+          </div>
+        )}
+        
         {!active && (
           <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-2 px-4 text-center">
             <span className="text-3xl opacity-60">📷</span>

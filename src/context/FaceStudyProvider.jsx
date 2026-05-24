@@ -50,10 +50,24 @@ export function FaceStudyProvider({ children }) {
   }, []);
 
   const startCamera = useCallback(async () => {
+    // If already active and stream exists, just re-attach to the current videoRef if needed
+    if (streamRef.current && videoRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        try {
+          await videoRef.current.play();
+        } catch (e) {
+          console.warn("Auto-play blocked or failed on re-attach:", e);
+        }
+      }
+      setActive(true);
+      return;
+    }
+
     setError("");
     setLoading(true);
     try {
-      // Load both models
+      // Load both models if not already loaded
       if (!faceModelRef.current) {
         faceModelRef.current = await blazeface.load();
       }
@@ -72,6 +86,7 @@ export function FaceStudyProvider({ children }) {
       }
       setActive(true);
 
+      if (tickRef.current) clearInterval(tickRef.current);
       tickRef.current = setInterval(async () => {
         const video = videoRef.current;
         const faceModel = faceModelRef.current;

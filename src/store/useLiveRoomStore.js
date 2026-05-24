@@ -10,6 +10,8 @@ export const useLiveRoomStore = create(
       mirrorVideo: true,
       isBreakMode: false,
       isCamOff: false,
+      gridTileSize: 'medium', // 'small' | 'medium' | 'large'
+      showStatsOverlay: true,
 
       togglePin: (identity) => set((state) => {
         const isPinned = state.pinnedUsers.includes(identity);
@@ -27,12 +29,16 @@ export const useLiveRoomStore = create(
       setMirrorVideo: (mirror) => set({ mirrorVideo: mirror }),
       setBreakMode: (breakMode) => set({ isBreakMode: breakMode }),
       setCamOff: (camOff) => set({ isCamOff: camOff }),
+      setGridTileSize: (size) => set({ gridTileSize: size }),
+      toggleStatsOverlay: () => set((state) => ({ showStatsOverlay: !state.showStatsOverlay })),
     }),
     {
       name: 'live-room-storage',
       partialize: (state) => ({
         videoResolution: state.videoResolution,
         mirrorVideo: state.mirrorVideo,
+        gridTileSize: state.gridTileSize,
+        showStatsOverlay: state.showStatsOverlay,
       }),
     }
   )

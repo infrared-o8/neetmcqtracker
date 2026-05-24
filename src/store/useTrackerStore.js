@@ -16,6 +16,9 @@ const DEFAULT_PREFERENCES = {
   youtubeAudioUrl: "https://www.youtube.com/watch?v=jfKfPfyJRdk", // Lofi default
   youtubeVideoUrl: "https://www.youtube.com/watch?v=5wT8S8pT7h0", // Aesthetic study background
   bgVideoEnabled: true,
+  uiOptimized: false,
+  showAiSelfView: true,
+  disableAnimations: false,
   currentWork: "",
   cozyPreset: "default",
 };

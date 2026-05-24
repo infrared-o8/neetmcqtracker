@@ -114,31 +114,22 @@ export function getRankProgress(activityTotal) {
 
 export function getAllRanksProgress(activityTotal) {
   return RANKS.map((rank, index) => {
-    const nextRank = RANKS[index + 1] ?? null;
     const achieved = activityTotal >= rank.minSolved;
-    if (!nextRank) {
-      return {
-        label: rank.label,
-        minSolved: rank.minSolved,
-        achieved,
-        progressPercent: achieved ? 100 : 0,
-        remaining: 0,
-      };
-    }
-    const tierSpan = nextRank.minSolved - rank.minSolved;
-    const progressInTier = Math.max(activityTotal - rank.minSolved, 0);
-    const progressPercent = achieved
-      ? activityTotal >= nextRank.minSolved
+    const nextRank = RANKS[index + 1] ?? null;
+
+    // Progress toward UNLOCKING this specific rank
+    const progressPercent =
+      rank.minSolved === 0
         ? 100
-        : Math.min((progressInTier / tierSpan) * 100, 100)
-      : 0;
+        : Math.min((activityTotal / rank.minSolved) * 100, 100);
+
     return {
       label: rank.label,
       minSolved: rank.minSolved,
-      achieved: activityTotal >= nextRank.minSolved,
-      current: activityTotal >= rank.minSolved && activityTotal < nextRank.minSolved,
+      achieved,
+      current: achieved && (!nextRank || activityTotal < nextRank.minSolved),
       progressPercent,
-      remaining: Math.max(nextRank.minSolved - activityTotal, 0),
+      remaining: Math.max(rank.minSolved - activityTotal, 0),
     };
   });
 }

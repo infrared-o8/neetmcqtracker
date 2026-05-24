@@ -54,7 +54,16 @@ function requirePlayer(req, res, next) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, time: Date.now(), port: PORT });
+  res.json({ ok: true, time: Date.now(), port: PORT, version: "1.2.0" });
+});
+
+app.post("/api/admin/restart", (req, res) => {
+  res.json({ ok: true, message: "Server restarting..." });
+  console.log("\n--- ADMIN RESTART SIGNAL RECEIVED ---");
+  console.log("Shutting down in 1s...");
+  setTimeout(() => {
+    process.exit(0); // Assumes a process runner like 'npm run server' loop or PM2
+  }, 1000);
 });
 
 app.post("/api/livekit/token", async (req, res) => {
@@ -180,7 +189,7 @@ function printLanAddresses() {
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`NEET leaderboard server v1.1.0 listening on 0.0.0.0:${PORT}`);
+  console.log(`NEET leaderboard server v1.2.0 listening on 0.0.0.0:${PORT}`);
   console.log(`DB: ${db.name}`);
   printLanAddresses();
 });

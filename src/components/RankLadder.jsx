@@ -37,20 +37,34 @@ export function RankLadder({ activityTotal }) {
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className={`text-sm font-medium ${r.current ? "chroma-text" : "text-zinc-200"}`}>
+                  <span className={`text-sm font-bold ${r.current ? "chroma-text" : "text-zinc-200"}`}>
                     {r.label}
                   </span>
-                  <span className="text-xs text-zinc-500">{r.minSolved.toLocaleString()}</span>
+                  <span className="text-[10px] font-mono font-bold text-zinc-500">{r.minSolved.toLocaleString()}</span>
                 </div>
-                {!r.achieved && r.progressPercent > 0 && (
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-zinc-800">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400"
-                      style={{ width: `${r.progressPercent}%` }}
-                    />
+                
+                {!r.achieved && (
+                  <div className="mt-2 space-y-1">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800/50 border border-white/5">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${r.progressPercent}%` }}
+                        className="h-full rounded-full bg-gradient-to-r from-fuchsia-600/60 to-violet-500/60 shadow-[0_0_8px_rgba(139,92,246,0.3)]"
+                      />
+                    </div>
+                    <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter text-zinc-600">
+                      <span>{Math.round(r.progressPercent)}% to milestone</span>
+                      <span>{r.remaining.toLocaleString()} left</span>
+                    </div>
                   </div>
                 )}
-                {r.achieved && <span className="text-[10px] text-emerald-400">Unlocked</span>}
+                
+                {r.achieved && (
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <div className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
+                    <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500/80">Unlocked</span>
+                  </div>
+                )}
               </li>
             ))}
           </motion.ul>
