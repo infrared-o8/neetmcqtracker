@@ -16,7 +16,7 @@ import { ParticipantTile } from '../components/studyroom/ParticipantTile';
 import { useProfileStore } from '../store/useProfileStore';
 import { useLiveRoomStore } from '../store/useLiveRoomStore';
 import { useTrackerStore } from '../store/useTrackerStore';
-import { apiFetch } from '../utils/api';
+import { apiFetch, apiUrl } from '../utils/api';
 
 export default function StudyRoomPage() {
   const [token, setToken] = useState(null);
@@ -28,23 +28,39 @@ export default function StudyRoomPage() {
 
   useEffect(() => {
     (async () => {
-      try {
-        const resp = await apiFetch(serverUrl, '/api/livekit/token', {
+      const fetchToken = async (baseUrl) => {
+        const url = apiUrl(baseUrl, '/api/livekit/token');
+        console.log(`Attempting to fetch token from: ${url}`);
+        const resp = await apiFetch(baseUrl, '/api/livekit/token', {
           method: 'POST',
           body: JSON.stringify({ playerName: displayName }),
         });
-        
-        if (!resp.ok) {
-          const errorData = await resp.json().catch(() => ({ error: resp.statusText }));
-          throw new Error(errorData.error || `Server returned ${resp.status}`);
+        if (!resp.ok) throw new Error(`Status ${resp.status}`);
+        return resp.json();
+      };
+
+      try {
+        let data;
+        try {
+          // 1. Try configured serverUrl
+          data = await fetchToken(serverUrl);
+        } catch (e) {
+          // 2. If it fails and we have a serverUrl set, try local fallback
+          if (serverUrl) {
+            console.log('configured serverUrl failed, trying local fallback...');
+            data = await fetchToken('');
+          } else {
+            throw e;
+          }
         }
 
-        const data = await resp.json();
         setToken(data.token);
         setLkUrl(data.serverUrl);
       } catch (e) {
         console.error('Failed to fetch LiveKit token:', e);
-        setError(e.message);
+        setError(e.message === 'Failed to fetch' 
+          ? 'Cannot reach server. Check if "npm run server" is running.' 
+          : e.message);
       }
     })();
   }, [displayName, serverUrl]);

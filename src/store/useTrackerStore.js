@@ -12,7 +12,7 @@ const DEFAULT_PREFERENCES = {
   soundEnabled: true,
   hapticsEnabled: true,
   ambientTrack: "off",
-  serverUrl: "https://splendor-entertain-skintight.ngrok-free.dev",
+  serverUrl: "",
   youtubeAudioUrl: "https://www.youtube.com/watch?v=jfKfPfyJRdk", // Lofi default
   youtubeVideoUrl: "https://www.youtube.com/watch?v=5wT8S8pT7h0", // Aesthetic study background
   bgVideoEnabled: true,

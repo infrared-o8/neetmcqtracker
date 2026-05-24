@@ -180,7 +180,7 @@ function printLanAddresses() {
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`NEET leaderboard server listening on 0.0.0.0:${PORT}`);
+  console.log(`NEET leaderboard server v1.1.0 listening on 0.0.0.0:${PORT}`);
   console.log(`DB: ${db.name}`);
   printLanAddresses();
 });
