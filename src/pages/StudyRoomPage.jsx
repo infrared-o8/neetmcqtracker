@@ -21,6 +21,7 @@ const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://your-livekit-url.
 
 export default function StudyRoomPage() {
   const [token, setToken] = useState(null);
+  const [error, setError] = useState(null);
   const displayName = useProfileStore((s) => s.displayName) || 'Aspirant';
   const { pinnedUsers } = useLiveRoomStore();
 
@@ -32,13 +33,37 @@ export default function StudyRoomPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerName: displayName }),
         });
+        
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({ error: resp.statusText }));
+          throw new Error(errorData.error || `Server returned ${resp.status}`);
+        }
+
         const data = await resp.json();
         setToken(data.token);
       } catch (e) {
         console.error('Failed to fetch LiveKit token:', e);
+        setError(e.message);
       }
     })();
   }, [displayName]);
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-zinc-950/50 backdrop-blur-xl">
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center">
+          <p className="text-red-400 font-medium">Connection Failed</p>
+          <p className="mt-2 text-xs text-zinc-500 font-mono">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-lg bg-zinc-800 px-4 py-2 text-xs font-bold hover:bg-zinc-700 transition"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!token) {
     return (
