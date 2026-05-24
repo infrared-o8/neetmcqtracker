@@ -49,8 +49,6 @@ function fetchWithTimeout(url, options = {}, ms = 10000) {
 
   return fetch(url, {
     ...rest,
-    mode: "cors",
-    credentials: "omit",
     signal: controller.signal,
   }).finally(() => clearTimeout(timer));
 }
@@ -84,6 +82,7 @@ export async function apiFetch(serverUrl, path, options = {}) {
       ...options,
       headers: {
         "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
         ...options.headers,
       },
     });
@@ -109,7 +108,16 @@ export async function checkServerHealth(serverUrl, timeoutMs = 8000) {
   }
 
   try {
-    const res = await fetchWithTimeout(url, { method: "GET" }, timeoutMs);
+    const res = await fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: {
+          "ngrok-skip-browser-warning": "true",
+        },
+      },
+      timeoutMs,
+    );
     if (!res.ok) {
       return { ok: false, error: `Server returned ${res.status}`, url };
     }

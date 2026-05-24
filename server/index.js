@@ -8,32 +8,28 @@ const SERVER_PIN = process.env.SERVER_PIN || "";
 
 const app = express();
 
+// Comprehensive CORS configuration
+app.use(cors({
+  origin: true, // Echoes the request origin
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type", 
+    "Authorization", 
+    "X-Player-Id", 
+    "X-Server-Pin", 
+    "ngrok-skip-browser-warning",
+    "access-control-allow-private-network"
+  ],
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+}));
+
+// Request Logging
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, X-Player-Id, X-Server-Pin, Authorization",
-  );
-  res.setHeader("Access-Control-Max-Age", "86400");
-  if (req.headers["access-control-request-private-network"]) {
-    res.setHeader("Access-Control-Allow-Private-Network", "true");
-  }
-  if (req.method === "OPTIONS") {
-    res.sendStatus(204);
-    return;
-  }
+  console.log(`${new Date().toISOString()} [${req.method}] ${req.url}`);
   next();
 });
 
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "X-Player-Id", "X-Server-Pin"],
-  }),
-);
 app.use(express.json({ limit: "64kb" }));
 
 function requirePin(req, res, next) {
