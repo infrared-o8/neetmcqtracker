@@ -15,6 +15,8 @@ import { RoomSidebar } from '../components/studyroom/RoomSidebar';
 import { ParticipantTile } from '../components/studyroom/ParticipantTile';
 import { useProfileStore } from '../store/useProfileStore';
 import { useLiveRoomStore } from '../store/useLiveRoomStore';
+import { useTrackerStore } from '../store/useTrackerStore';
+import { apiFetch } from '../utils/api';
 
 // In a real app, these would come from environment variables
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://your-livekit-url.livekit.cloud';
@@ -23,14 +25,14 @@ export default function StudyRoomPage() {
   const [token, setToken] = useState(null);
   const [error, setError] = useState(null);
   const displayName = useProfileStore((s) => s.displayName) || 'Aspirant';
+  const serverUrl = useTrackerStore((s) => s.preferences.serverUrl);
   const { pinnedUsers } = useLiveRoomStore();
 
   useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch('/api/livekit/token', {
+        const resp = await apiFetch(serverUrl, '/api/livekit/token', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerName: displayName }),
         });
         
@@ -46,7 +48,7 @@ export default function StudyRoomPage() {
         setError(e.message);
       }
     })();
-  }, [displayName]);
+  }, [displayName, serverUrl]);
 
   if (error) {
     return (
