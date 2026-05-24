@@ -1,51 +1,104 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import Database from "better-sqlite3";
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, "data");
-const dbPath = join(dataDir, "players.json");
+const dbPath = join(dataDir, "database.sqlite");
+const jsonDbPath = join(dataDir, "players.json");
 
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
-function load() {
-  if (!existsSync(dbPath)) {
-    return { players: {} };
-  }
-  try {
-    return JSON.parse(readFileSync(dbPath, "utf8"));
-  } catch {
-    return { players: {} };
-  }
-}
+const dbConn = new Database(dbPath);
+dbConn.pragma("journal_mode = WAL");
 
-function save(data) {
-  writeFileSync(dbPath, JSON.stringify(data, null, 2), "utf8");
+// Initialize Schema
+dbConn.exec(`
+  CREATE TABLE IF NOT EXISTS players (
+    player_id TEXT PRIMARY KEY,
+    display_name TEXT,
+    decor_json TEXT,
+    xp INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1,
+    total_solved INTEGER DEFAULT 0,
+    total_pages_read INTEGER DEFAULT 0,
+    streak INTEGER DEFAULT 0,
+    best_streak INTEGER DEFAULT 0,
+    rank_label TEXT DEFAULT 'Beginner',
+    study_minutes INTEGER DEFAULT 0,
+    updated_at INTEGER
+  )
+`);
+
+// Migration from JSON if exists
+if (existsSync(jsonDbPath)) {
+  try {
+    const data = JSON.parse(readFileSync(jsonDbPath, "utf8"));
+    const players = data.players || {};
+    
+    const insert = dbConn.prepare(`
+      INSERT OR REPLACE INTO players (
+        player_id, display_name, decor_json, xp, level, 
+        total_solved, total_pages_read, streak, best_streak, 
+        rank_label, study_minutes, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const transaction = dbConn.transaction((playersMap) => {
+      for (const [id, p] of Object.entries(playersMap)) {
+        insert.run(
+          id,
+          p.display_name,
+          p.decor_json,
+          p.xp,
+          p.level,
+          p.total_solved,
+          p.total_pages_read,
+          p.streak,
+          p.best_streak,
+          p.rank_label,
+          p.study_minutes ?? 0,
+          p.updated_at
+        );
+      }
+    });
+
+    transaction(players);
+    console.log(`Migrated ${Object.keys(players).length} players from JSON to SQLite.`);
+    // unlinkSync(jsonDbPath); // Optional: delete after migration
+  } catch (err) {
+    console.error("Migration failed:", err);
+  }
 }
 
 export const db = { name: dbPath };
 
 export function upsertPlayer({ playerId, displayName, decor }) {
-  const data = load();
-  const existing = data.players[playerId] || {
-    player_id: playerId,
-    xp: 0,
-    level: 1,
-    total_solved: 0,
-    total_pages_read: 0,
-    streak: 0,
-    best_streak: 0,
-    rank_label: "Beginner",
-    study_minutes: 0,
-  };
-  data.players[playerId] = {
-    ...existing,
-    player_id: playerId,
-    display_name: displayName,
-    decor_json: JSON.stringify(decor || {}),
-    updated_at: Date.now(),
-  };
-  save(data);
+  const existing = dbConn.prepare("SELECT * FROM players WHERE player_id = ?").get(playerId);
+  
+  if (existing) {
+    dbConn.prepare(`
+      UPDATE players 
+      SET display_name = ?, decor_json = ?, updated_at = ?
+      WHERE player_id = ?
+    `).run(
+      displayName,
+      JSON.stringify(decor || {}),
+      Date.now(),
+      playerId
+    );
+  } else {
+    dbConn.prepare(`
+      INSERT INTO players (player_id, display_name, decor_json, updated_at)
+      VALUES (?, ?, ?, ?)
+    `).run(
+      playerId,
+      displayName,
+      JSON.stringify(decor || {}),
+      Date.now()
+    );
+  }
 }
 
 function activityFromRow(row) {
@@ -53,35 +106,33 @@ function activityFromRow(row) {
 }
 
 export function updateStats(playerId, stats) {
-  const data = load();
-  if (!data.players[playerId]) return false;
-  data.players[playerId] = {
-    ...data.players[playerId],
-    xp: stats.xp,
-    level: stats.level,
-    total_solved: stats.totalSolved,
-    total_pages_read: stats.totalPagesRead,
-    streak: stats.streak,
-    best_streak: stats.bestStreak,
-    rank_label: stats.rankLabel,
-    study_minutes:
-      stats.studyMinutes != null
-        ? Number(stats.studyMinutes) || 0
-        : (data.players[playerId].study_minutes ?? 0),
-    updated_at: Date.now(),
-  };
-  save(data);
-  return true;
+  const result = dbConn.prepare(`
+    UPDATE players 
+    SET xp = ?, level = ?, total_solved = ?, total_pages_read = ?, 
+        streak = ?, best_streak = ?, rank_label = ?, study_minutes = ?, updated_at = ?
+    WHERE player_id = ?
+  `).run(
+    stats.xp,
+    stats.level,
+    stats.totalSolved,
+    stats.totalPagesRead,
+    stats.streak,
+    stats.bestStreak,
+    stats.rankLabel,
+    stats.studyMinutes ?? 0,
+    Date.now(),
+    playerId
+  );
+  return result.changes > 0;
 }
 
 export function getPlayer(playerId) {
-  const data = load();
-  return data.players[playerId] ?? null;
+  return dbConn.prepare("SELECT * FROM players WHERE player_id = ?").get(playerId) || null;
 }
 
 export function getLeaderboard(sort = "activity") {
-  const data = load();
-  const rows = Object.values(data.players);
+  const rows = dbConn.prepare("SELECT * FROM players").all();
+  
   rows.sort((a, b) => {
     const actA = activityFromRow(a);
     const actB = activityFromRow(b);
@@ -89,6 +140,7 @@ export function getLeaderboard(sort = "activity") {
     if (sort === "streak") return b.streak - a.streak || actB - actA;
     return actB - actA || b.xp - a.xp;
   });
+
   return rows.slice(0, 100).map((row, index) => ({
     rank: index + 1,
     playerId: row.player_id,

@@ -12,7 +12,7 @@ const DEFAULT_PREFERENCES = {
   soundEnabled: true,
   hapticsEnabled: true,
   ambientTrack: "off",
-  serverUrl: "",
+  serverUrl: "https://splendor-entertain-skintight.ngrok-free.dev",
   youtubeAudioUrl: "",
   youtubeVideoUrl: "",
   bgVideoEnabled: false,

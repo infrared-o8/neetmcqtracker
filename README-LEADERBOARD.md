@@ -1,6 +1,13 @@
 # Leaderboard
 
-## Single laptop (web app)
+## Global Leaderboard (Default)
+
+The app is pre-configured to sync with a global leaderboard hosted at:
+`https://splendor-entertain-skintight.ngrok-free.dev`
+
+Simply open the **Leaderboard** tab to see how you rank against everyone!
+
+## Local / Private Leaderboard (Single laptop)
 
 **Terminal 1:**
 ```bash
@@ -16,10 +23,11 @@ npm run dev
 
 Or one command: `npm run dev:all`
 
-- Leave **Server URL** empty in Settings (uses Vite proxy to `localhost:3847`)
+- Go to **Settings** → **Server URL**
+- Set to `http://localhost:3847` (or leave empty if using Vite proxy)
 - Log MCQs on Dashboard, open **Leaderboard**
 
-## Two laptops
+## LAN Leaderboard (Two laptops)
 
 **Host (friend's laptop):**
 ```bash
