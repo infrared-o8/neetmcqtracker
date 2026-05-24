@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate } from "lucide-react";
+import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate, Cloud, BookOpen } from "lucide-react";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { PixelCompanion } from "./PixelCompanion";
 import { useAmbientAudio } from "../hooks/useAmbientAudio";
@@ -162,6 +162,48 @@ export function StudySidebar() {
         <p className="mt-2 text-[10px] leading-relaxed text-zinc-600">
           Uses only this link. Click Play after pasting (browser autoplay rules).
         </p>
+      </div>
+
+      <div className="mt-6">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Cozy Presets</p>
+        <div className="mt-2 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setPreferences({ cozyPreset: "default" })}
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition ${
+              preferences.cozyPreset === "default"
+                ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-100"
+                : "border-white/5 text-zinc-400 hover:bg-white/5"
+            }`}
+          >
+            <span className="text-lg">✨</span>
+            Default
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreferences({ cozyPreset: "monsoon" })}
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition ${
+              preferences.cozyPreset === "monsoon"
+                ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-100"
+                : "border-white/5 text-zinc-400 hover:bg-white/5"
+            }`}
+          >
+            <Cloud className="h-4 w-4" />
+            🌧️ Monsoon Night
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreferences({ cozyPreset: "library" })}
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition ${
+              preferences.cozyPreset === "library"
+                ? "border-amber-400/40 bg-amber-500/15 text-amber-100"
+                : "border-white/5 text-zinc-400 hover:bg-white/5"
+            }`}
+          >
+            <BookOpen className="h-4 w-4" />
+            ☕ Old Library
+          </button>
+        </div>
       </div>
 
       <StudyCameraPanel />

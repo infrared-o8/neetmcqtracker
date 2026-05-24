@@ -3,14 +3,17 @@ import { motion } from "framer-motion";
 import { MagneticButton } from "./ui/MagneticButton";
 import { FloatingDelta } from "./ui/FloatingDelta";
 import { useSpacebarAdd } from "../hooks/useSpacebarAdd";
+import { useThock } from "../hooks/useThock";
 
 const MotionSpan = motion.span;
 
 export function QuickAddControls({ onAdd, label = "MCQ", showCombo = false, comboCount = 0 }) {
   const [deltas, setDeltas] = useState([]);
+  const playThock = useThock();
 
   const fire = useCallback(
     (amount) => {
+      playThock();
       onAdd(amount);
       const id = `${Date.now()}-${Math.random()}`;
       setDeltas((d) => [...d, { id, amount, x: (Math.random() - 0.5) * 24 }]);
@@ -18,7 +21,7 @@ export function QuickAddControls({ onAdd, label = "MCQ", showCombo = false, comb
         setDeltas((d) => d.filter((x) => x.id !== id));
       }, 650);
     },
-    [onAdd],
+    [onAdd, playThock],
   );
 
   useSpacebarAdd(() => fire(1));

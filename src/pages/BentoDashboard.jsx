@@ -15,6 +15,7 @@ import { RankUnlockSpectacle } from "../components/dashboard/RankUnlockSpectacle
 import { SpeedCard } from "../components/dashboard/SpeedCard";
 import { FaceStudyTopBar } from "../components/study/FaceStudyTopBar";
 import { StudyCameraCard } from "../components/study/StudyCameraCard";
+import { LiveMarquee } from "../components/LiveMarquee";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { useMicroRewards } from "../hooks/useMicroRewards";
 import { useLeaderboardSync } from "../hooks/useLeaderboardSync";
@@ -74,6 +75,8 @@ export function BentoDashboard() {
   const startSession = useTrackerStore((s) => s.startSession);
   const endSession = useTrackerStore((s) => s.endSession);
   const checkInactivity = useTrackerStore((s) => s.checkInactivity);
+  const preferences = useTrackerStore((s) => s.preferences);
+  const setPreferences = useTrackerStore((s) => s.setPreferences);
 
   const { onIncrement, playLevelUp } = useMicroRewards();
   const { scheduleSync } = useLeaderboardSync();
@@ -185,9 +188,20 @@ export function BentoDashboard() {
       />
       <MilestoneReveal milestone={activeMilestone} onDismiss={dismissMilestone} />
 
+      <LiveMarquee />
       <FaceStudyTopBar />
 
       <MotionDiv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        <div className="mb-4 flex items-center gap-3">
+          <input
+            type="text"
+            value={preferences.currentWork}
+            onChange={(e) => setPreferences({ currentWork: e.target.value })}
+            placeholder="What are you working on? (e.g., Organic Chemistry - NCERT)"
+            className="flex-1 rounded-xl border border-white/10 bg-zinc-900/60 px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/20"
+          />
+        </div>
+
         {breakWarning && (
           <p className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-500/12 px-4 py-3 text-sm text-rose-200">
             Momentum dying... Resume within 10 min to keep the combo.
@@ -199,6 +213,7 @@ export function BentoDashboard() {
             outline="cyan"
             rankPulse={rankPulse}
             goalGlow={goalMet}
+            perf={true}
             className="bento-today md:col-span-2"
           >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
@@ -212,7 +227,7 @@ export function BentoDashboard() {
             )}
           </StatGlowCard>
 
-          <StatGlowCard outline="violet" rankPulse={rankPulse} className="bento-total">
+          <StatGlowCard outline="violet" rankPulse={rankPulse} perf={true} className="bento-total">
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-violet-200/90">
               Activity total
             </p>
@@ -225,7 +240,7 @@ export function BentoDashboard() {
             </p>
           </StatGlowCard>
 
-          <GlowCard className="bento-streak">
+          <GlowCard className="bento-streak" perf={true}>
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Streak</p>
             <p className="mt-2 text-4xl font-semibold text-orange-300">
               <RollingNumber value={streak} />d

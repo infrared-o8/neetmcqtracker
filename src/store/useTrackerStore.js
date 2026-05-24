@@ -16,6 +16,8 @@ const DEFAULT_PREFERENCES = {
   youtubeAudioUrl: "",
   youtubeVideoUrl: "",
   bgVideoEnabled: false,
+  currentWork: "",
+  cozyPreset: "default",
 };
 
 export const initialState = {

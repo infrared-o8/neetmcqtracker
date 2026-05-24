@@ -3,16 +3,19 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion } from "framer-motion";
 import { StudySidebar } from "./components/StudySidebar";
 import { YoutubeMedia } from "./components/YoutubeMedia";
+import { ThemeBackground } from "./components/ThemeBackground";
 import { Dashboard } from "./pages/Dashboard";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { useProfileStore } from "./store/useProfileStore";
+import { useTrackerStore } from "./store/useTrackerStore";
 import { FaceStudyProvider } from "./context/FaceStudyProvider";
 
 const MotionDiv = motion.div;
 
 function App() {
   const ensurePlayerId = useProfileStore((s) => s.ensurePlayerId);
+  const preferences = useTrackerStore((s) => s.preferences);
   useEffect(() => {
     ensurePlayerId();
   }, [ensurePlayerId]);
@@ -22,7 +25,7 @@ function App() {
       <FaceStudyProvider>
       <main className="relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100">
         <YoutubeMedia />
-        <div className="mesh-bg pointer-events-none fixed inset-0 -z-10" />
+        <ThemeBackground cozyPreset={preferences.cozyPreset} />
         <MotionDiv
           className="relative z-10 flex min-h-0 flex-1 flex-col"
           initial={{ opacity: 0 }}

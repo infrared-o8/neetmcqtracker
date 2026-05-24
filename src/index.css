@@ -34,6 +34,13 @@ body {
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
+/* Performance-optimized glass for frequently updating cards (no backdrop-filter) */
+.perf-glass {
+  background: rgba(15, 15, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
 .mesh-bg {
   background-color: #09090b;
   background-image:
@@ -89,6 +96,7 @@ body {
 
 .stat-highlight-wrap:hover::before {
   opacity: 1;
+  will-change: opacity;
 }
 
 .stat-outline-cyan {
@@ -105,6 +113,7 @@ body {
 
 .stat-highlight-wrap:hover {
   filter: drop-shadow(0 0 14px var(--stat-glow, rgba(34, 211, 238, 0.25)));
+  will-change: filter;
 }
 
 .stat-outline-cyan:hover {
@@ -124,8 +133,10 @@ body {
   filter: drop-shadow(0 0 22px var(--stat-glow, rgba(168, 85, 247, 0.55)));
 }
 
-.stat-highlight-wrap.stat-rank-pulse .genz-glass {
+.stat-highlight-wrap.stat-rank-pulse .genz-glass,
+.stat-highlight-wrap.stat-rank-pulse .perf-glass {
   animation: statRankInnerGlow 1.8s ease-in-out infinite;
+  will-change: box-shadow;
 }
 
 @keyframes statRankOutline {
@@ -138,6 +149,10 @@ body {
     background-position: 100% 50%;
     opacity: 1;
   }
+}
+
+.stat-highlight-wrap.stat-rank-pulse::before {
+  will-change: background-position, opacity;
 }
 
 @keyframes statRankInnerGlow {
@@ -192,6 +207,10 @@ body {
   }
 }
 
+.animate-glow-pulse {
+  will-change: filter;
+}
+
 .chroma-text {
   background: linear-gradient(90deg, #a855f7, #22d3ee, #f43f5e, #a855f7);
   background-size: 300% 100%;
@@ -207,12 +226,17 @@ body {
   }
 }
 
+.chroma-text {
+  will-change: background-position;
+}
+
 .animate-chroma-border {
   border: 2px solid transparent;
   background: linear-gradient(#0f0f14, #0f0f14) padding-box,
     linear-gradient(90deg, #a855f7, #22d3ee, #f43f5e, #a855f7) border-box;
   background-size: 300% 100%;
   animation: chromaShift 3s linear infinite;
+  will-change: background-position;
 }
 
 .combo-badge {
@@ -605,4 +629,56 @@ body {
   color: rgb(228 228 231);
   border-radius: 0;
   pointer-events: none;
+}
+
+/* Twilight theme (after 8PM) */
+.twilight-bg {
+  background: linear-gradient(180deg, #0a0a12 0%, #0d0d18 50%, #0f0f1a 100%);
+}
+
+.twilight-rain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.rain-drop {
+  position: absolute;
+  width: 1px;
+  height: 15px;
+  background: linear-gradient(180deg, transparent, rgba(100, 149, 237, 0.3), transparent);
+  animation: rainFall linear infinite;
+  will-change: transform;
+}
+
+@keyframes rainFall {
+  0% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+/* Old Library theme */
+.library-bg {
+  background: linear-gradient(180deg, #1a1612 0%, #1f1a15 50%, #241e18 100%);
+}
+
+.library-bg .mesh-bg {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 15% 10%, rgba(205, 133, 63, 0.15), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 85% 15%, rgba(139, 90, 43, 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 50% 95%, rgba(160, 82, 45, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 70% 70%, rgba(184, 134, 11, 0.06), transparent 50%);
 }

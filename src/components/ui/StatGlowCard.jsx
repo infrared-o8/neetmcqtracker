@@ -11,6 +11,7 @@ export function StatGlowCard({
   goalGlow = false,
   className = "",
   children,
+  perf = false,
 }) {
   const outlineClass = outline === "violet" ? "stat-outline-violet" : "stat-outline-cyan";
 
@@ -18,7 +19,7 @@ export function StatGlowCard({
     <div
       className={`group stat-highlight-wrap ${outlineClass} ${rankPulse ? "stat-rank-pulse" : ""} ${className}`}
     >
-      <GlowCard glow={goalGlow} className="relative z-[1] h-full">
+      <GlowCard glow={goalGlow} perf={perf} className="relative z-[1] h-full">
         <TiltCard lowSheen>{children}</TiltCard>
       </GlowCard>
     </div>
