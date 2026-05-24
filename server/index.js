@@ -9,6 +9,7 @@ const PORT = Number(process.env.PORT) || 3847;
 const SERVER_PIN = process.env.SERVER_PIN || "";
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "devkey";
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || "secret";
+const LIVEKIT_URL = process.env.VITE_LIVEKIT_URL || "";
 
 const app = express();
 
@@ -68,7 +69,10 @@ app.post("/api/livekit/token", async (req, res) => {
   });
   at.addGrant({ roomJoin: true, room: room, canPublish: true, canSubscribe: true });
 
-  res.json({ token: await at.toJwt() });
+  res.json({ 
+    token: await at.toJwt(),
+    serverUrl: LIVEKIT_URL
+  });
 });
 
 app.post("/api/players/register", requirePin, (req, res) => {

@@ -18,11 +18,9 @@ import { useLiveRoomStore } from '../store/useLiveRoomStore';
 import { useTrackerStore } from '../store/useTrackerStore';
 import { apiFetch } from '../utils/api';
 
-// In a real app, these would come from environment variables
-const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || 'wss://your-livekit-url.livekit.cloud';
-
 export default function StudyRoomPage() {
   const [token, setToken] = useState(null);
+  const [lkUrl, setLkUrl] = useState(null);
   const [error, setError] = useState(null);
   const displayName = useProfileStore((s) => s.displayName) || 'Aspirant';
   const serverUrl = useTrackerStore((s) => s.preferences.serverUrl);
@@ -43,6 +41,7 @@ export default function StudyRoomPage() {
 
         const data = await resp.json();
         setToken(data.token);
+        setLkUrl(data.serverUrl);
       } catch (e) {
         console.error('Failed to fetch LiveKit token:', e);
         setError(e.message);
@@ -67,7 +66,7 @@ export default function StudyRoomPage() {
     );
   }
 
-  if (!token) {
+  if (!token || !lkUrl) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 bg-zinc-950/50 backdrop-blur-xl">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-fuchsia-500 border-t-transparent" />
@@ -83,7 +82,7 @@ export default function StudyRoomPage() {
       video={true}
       audio={false} // Globally muted by default
       token={token}
-      serverUrl={LIVEKIT_URL}
+      serverUrl={lkUrl}
       onConnected={() => console.log('Connected to LiveKit')}
       onDisconnected={() => setToken(null)}
       className="flex h-full flex-col overflow-hidden bg-zinc-950/20"
