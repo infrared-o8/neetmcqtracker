@@ -12,6 +12,10 @@ export function StatGlowCard({
   className = "",
   children,
   perf = false,
+  id,
+  minimized = false,
+  onToggleMinimize,
+  title
 }) {
   const outlineClass = outline === "violet" ? "stat-outline-violet" : "stat-outline-cyan";
 
@@ -19,8 +23,20 @@ export function StatGlowCard({
     <div
       className={`group stat-highlight-wrap ${outlineClass} ${rankPulse ? "stat-rank-pulse" : ""} ${className}`}
     >
-      <GlowCard glow={goalGlow} perf={perf} className="relative z-[1] h-full">
-        <TiltCard lowSheen>{children}</TiltCard>
+      <GlowCard 
+        glow={goalGlow} 
+        perf={perf} 
+        className="relative z-[1] h-full"
+        id={id}
+        minimized={minimized}
+        onToggleMinimize={onToggleMinimize}
+        title={title}
+      >
+        {!minimized ? (
+          <TiltCard lowSheen={true}>{children}</TiltCard>
+        ) : (
+          children
+        )}
       </GlowCard>
     </div>
   );

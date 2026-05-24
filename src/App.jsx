@@ -10,15 +10,34 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { useProfileStore } from "./store/useProfileStore";
 import { useTrackerStore } from "./store/useTrackerStore";
 import { FaceStudyProvider } from "./context/FaceStudyProvider";
+import { useThock } from "./hooks/useThock";
 
 const MotionDiv = motion.div;
 
 function App() {
   const ensurePlayerId = useProfileStore((s) => s.ensurePlayerId);
   const preferences = useTrackerStore((s) => s.preferences);
+  const playClick = useThock();
+
   useEffect(() => {
     ensurePlayerId();
   }, [ensurePlayerId]);
+
+  // Global click listener for snappy audio feedback
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      // Find the closest interactive element (button, link, input[type=button/submit/checkbox/radio], or elements with onclick)
+      const target = e.target;
+      const interactive = target.closest('button, a, input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"], [role="button"], .cursor-pointer');
+      
+      if (interactive) {
+        playClick();
+      }
+    };
+
+    window.addEventListener("click", handleGlobalClick, { capture: true });
+    return () => window.removeEventListener("click", handleGlobalClick, { capture: true });
+  }, [playClick]);
 
   return (
     <BrowserRouter>

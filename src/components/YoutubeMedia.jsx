@@ -12,20 +12,32 @@ export function YoutubeMedia() {
     [ambientTrack, youtubeAudioUrl],
   );
   const videoId = useMemo(
-    () => (bgVideoEnabled ? parseYoutubeId(youtubeVideoUrl) : null),
+    () => {
+      const id = bgVideoEnabled ? parseYoutubeId(youtubeVideoUrl) : null;
+      if (bgVideoEnabled && !id && youtubeVideoUrl) {
+        console.warn("YoutubeMedia: Failed to parse video ID from", youtubeVideoUrl);
+      }
+      return id;
+    },
     [bgVideoEnabled, youtubeVideoUrl],
   );
 
   return (
     <>
       {videoId && (
-        <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden" aria-hidden>
-          <div className="absolute inset-0 z-10 bg-zinc-950/70" />
+        <div className="pointer-events-none fixed inset-0 -z-5 overflow-hidden" aria-hidden>
+          {/* Overlay to ensure readability of UI */}
+          <div className="absolute inset-0 z-10 bg-zinc-950/65" />
           <iframe
             key={`bg-${videoId}`}
             title="Background video"
-            className="absolute left-1/2 top-1/2 h-[130%] w-[130%] max-w-none -translate-x-1/2 -translate-y-1/2 border-0"
-            src={youtubeEmbedSrc(videoId, { autoplay: true, loop: true, mute: true, controls: false })}
+            className="absolute left-1/2 top-1/2 h-[115%] w-[115%] -translate-x-1/2 -translate-y-1/2 border-0 opacity-80"
+            src={youtubeEmbedSrc(videoId, { 
+              autoplay: true, 
+              loop: true, 
+              mute: true, 
+              controls: false 
+            }) + "&iv_load_policy=3&disablekb=1"}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
           />

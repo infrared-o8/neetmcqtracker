@@ -4,7 +4,18 @@ import { useTrackerStore } from "../../store/useTrackerStore";
 /** Compact sidebar status — full controls live on the dashboard card. */
 export function StudyCameraPanel() {
   const studyMinutesToday = useTrackerStore((s) => s.studyMinutesToday);
-  const { active, faceDetected, startCamera, stopCamera, loading } = useFaceStudyContext();
+  const { active, faceDetected, phoneDetected, startCamera, stopCamera, loading } = useFaceStudyContext();
+
+  let statusText = "○ Camera off";
+  if (active) {
+    if (phoneDetected) {
+      statusText = "📵 Phone detected: Paused";
+    } else if (faceDetected) {
+      statusText = "● Recording face time";
+    } else {
+      statusText = "○ Camera on — find your face";
+    }
+  }
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-zinc-900/50 p-3">
@@ -13,8 +24,8 @@ export function StudyCameraPanel() {
         Main camera card is on the dashboard. Today:{" "}
         <span className="font-semibold text-emerald-300">{studyMinutesToday}m</span>
       </p>
-      <p className="mt-2 text-[10px] text-zinc-500">
-        {active ? (faceDetected ? "● Recording face time" : "○ Camera on — find your face") : "○ Camera off"}
+      <p className={`mt-2 text-[10px] ${phoneDetected ? "text-rose-400 font-bold" : "text-zinc-500"}`}>
+        {statusText}
       </p>
       <button
         type="button"

@@ -1,3 +1,16 @@
-import { createContext } from "react";
+import { createContext, useContext } from "react";
 
-export const FaceStudyContext = createContext(null);
+export const FaceStudyContext = createContext({
+  videoRef: null,
+  active: false,
+  loading: false,
+  error: "",
+  faceDetected: false,
+  phoneDetected: false,
+  confidence: 0,
+  secondsTowardMinute: 0,
+  minuteBurst: null,
+  progressPercent: 0,
+  startCamera: () => {},
+  stopCamera: () => {},
+});

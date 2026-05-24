@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as blazeface from "@tensorflow-models/blazeface";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 import { FaceStudyContext } from "./faceStudyContext";
 import { useTrackerStore } from "../store/useTrackerStore";
 
-const CONFIDENCE_THRESHOLD = 0.6;
+const FACE_THRESHOLD = 0.6;
 const TICK_MS = 1000;
 const SECONDS_PER_MINUTE = 60;
 
@@ -15,13 +16,15 @@ export function FaceStudyProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [faceDetected, setFaceDetected] = useState(false);
+  const [phoneDetected, setPhoneDetected] = useState(false);
   const [confidence, setConfidence] = useState(0);
   const [secondsTowardMinute, setSecondsTowardMinute] = useState(0);
   const [minuteBurst, setMinuteBurst] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const modelRef = useRef(null);
+  const faceModelRef = useRef(null);
+  const objectModelRef = useRef(null);
   const tickRef = useRef(null);
   const consecutiveRef = useRef(0);
 
@@ -40,6 +43,7 @@ export function FaceStudyProvider({ children }) {
     if (videoRef.current) videoRef.current.srcObject = null;
     setActive(false);
     setFaceDetected(false);
+    setPhoneDetected(false);
     setConfidence(0);
     consecutiveRef.current = 0;
     setSecondsTowardMinute(0);
@@ -49,7 +53,14 @@ export function FaceStudyProvider({ children }) {
     setError("");
     setLoading(true);
     try {
-      if (!modelRef.current) modelRef.current = await blazeface.load();
+      // Load both models
+      if (!faceModelRef.current) {
+        faceModelRef.current = await blazeface.load();
+      }
+      if (!objectModelRef.current) {
+        objectModelRef.current = await cocoSsd.load();
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false,
@@ -63,14 +74,22 @@ export function FaceStudyProvider({ children }) {
 
       tickRef.current = setInterval(async () => {
         const video = videoRef.current;
-        const model = modelRef.current;
-        if (!video || !model || video.readyState < 2) return;
+        const faceModel = faceModelRef.current;
+        const objectModel = objectModelRef.current;
+        if (!video || !faceModel || !objectModel || video.readyState < 2) return;
+
         try {
-          const predictions = await model.estimateFaces(video, false);
-          const best =
-            predictions.length > 0
+          // Parallel detection
+          const [faces, objects] = await Promise.all([
+            faceModel.estimateFaces(video, false),
+            objectModel.detect(video),
+          ]);
+
+          // Face logic
+          const bestFace =
+            faces.length > 0
               ? Math.max(
-                  ...predictions.map((p) => {
+                  ...faces.map((p) => {
                     const prob = p.probability;
                     if (typeof prob === "number") return prob;
                     if (Array.isArray(prob)) return prob[0] ?? 0;
@@ -78,10 +97,20 @@ export function FaceStudyProvider({ children }) {
                   }),
                 )
               : 0;
-          setConfidence(best);
-          const present = best >= CONFIDENCE_THRESHOLD;
-          setFaceDetected(present);
-          if (present) {
+          
+          setConfidence(bestFace);
+          const hasFace = bestFace >= FACE_THRESHOLD;
+          setFaceDetected(hasFace);
+
+          // Phone logic
+          const hasPhone = objects.some(
+            (obj) => obj.class === "cell phone" && obj.score > 0.5
+          );
+          setPhoneDetected(hasPhone);
+
+          // Advanced Intelligence: Study minute logic
+          // Only increment if face is detected AND NO phone is detected
+          if (hasFace && !hasPhone) {
             consecutiveRef.current += 1;
             setSecondsTowardMinute(consecutiveRef.current);
             if (consecutiveRef.current >= SECONDS_PER_MINUTE) {
@@ -92,11 +121,19 @@ export function FaceStudyProvider({ children }) {
               setSecondsTowardMinute(0);
             }
           } else {
-            consecutiveRef.current = 0;
-            setSecondsTowardMinute(0);
+            // If distracted (phone) or gone (no face), don't reset immediately?
+            // User requested "intelligence", maybe a grace period?
+            // For now, strict: reset if phone, or pause if no face.
+            if (hasPhone) {
+              // Penalty or strict pause
+              consecutiveRef.current = Math.max(0, consecutiveRef.current - 2); // Penalize phone use
+            } else {
+              // Just pause if no face
+            }
+            setSecondsTowardMinute(consecutiveRef.current);
           }
-        } catch {
-          /* skip frame */
+        } catch (err) {
+          console.error("Detection error:", err);
         }
       }, TICK_MS);
     } catch (e) {
@@ -115,6 +152,7 @@ export function FaceStudyProvider({ children }) {
     loading,
     error,
     faceDetected,
+    phoneDetected,
     confidence,
     secondsTowardMinute,
     minuteBurst,

@@ -2,7 +2,7 @@ import { GlowCard } from "../ui/GlowCard";
 import { useFaceStudyContext } from "../../hooks/useFaceStudyContext";
 import { useTrackerStore } from "../../store/useTrackerStore";
 
-export function StudyCameraCard() {
+export function StudyCameraCard({ id, minimized, onToggleMinimize }) {
   const studyMinutes = useTrackerStore((s) => s.studyMinutes);
   const studyMinutesToday = useTrackerStore((s) => s.studyMinutesToday);
   const {
@@ -11,6 +11,7 @@ export function StudyCameraCard() {
     loading,
     error,
     faceDetected,
+    phoneDetected,
     confidence,
     secondsTowardMinute,
     startCamera,
@@ -18,12 +19,18 @@ export function StudyCameraCard() {
   } = useFaceStudyContext();
 
   return (
-    <GlowCard glow={active && faceDetected} className="bento-camera md:col-span-2">
+    <GlowCard 
+      glow={active && faceDetected && !phoneDetected} 
+      className={`bento-camera md:col-span-2 ${minimized ? "md:col-span-1" : ""}`}
+      id={id}
+      minimized={minimized}
+      onToggleMinimize={onToggleMinimize}
+      title="Intelligent Study Camera"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Face study camera</p>
           <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-            BlazeFace AI · ≥60% confidence · +1 study min (+0.5 activity, +1 XP) per verified minute
+            AI · Face & Phone check active
           </p>
         </div>
         <div className="text-right text-[10px] text-zinc-500">
@@ -46,27 +53,38 @@ export function StudyCameraCard() {
         {!active && (
           <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-2 px-4 text-center">
             <span className="text-3xl opacity-60">📷</span>
-            <p className="text-xs text-zinc-500">Start the camera to earn study minutes while you read</p>
+            <p className="text-xs text-zinc-500">Earn minutes while you read</p>
           </div>
         )}
         {active && (
-          <div
-            className={`absolute left-3 top-3 rounded-lg px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm ${
-              faceDetected ? "bg-emerald-500/35 text-emerald-100" : "bg-zinc-900/80 text-zinc-400"
-            }`}
-          >
-            {faceDetected ? `Face ${Math.round(confidence * 100)}%` : "No face"}
-          </div>
+          <>
+            <div
+              className={`absolute left-3 top-3 rounded-lg px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm transition-colors ${
+                faceDetected ? "bg-emerald-500/35 text-emerald-100" : "bg-zinc-900/80 text-zinc-400"
+              }`}
+            >
+              {faceDetected ? `Face ${Math.round(confidence * 100)}%` : "No face"}
+            </div>
+            {phoneDetected && (
+              <div className="absolute right-3 top-3 animate-pulse rounded-lg bg-rose-500/80 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg shadow-rose-500/20 backdrop-blur-sm">
+                📵 PHONE
+              </div>
+            )}
+          </>
         )}
         {active && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-6">
             <div className="h-1 overflow-hidden rounded-full bg-zinc-700/80">
               <div
-                className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
+                className={`h-full transition-all duration-300 ${
+                  phoneDetected ? "bg-rose-500" : "bg-gradient-to-r from-cyan-500 to-emerald-400"
+                }`}
                 style={{ width: `${(secondsTowardMinute / 60) * 100}%` }}
               />
             </div>
-            <p className="mt-1 text-center text-[10px] text-zinc-400">{secondsTowardMinute}s / 60s</p>
+            <p className="mt-1 text-center text-[10px] text-zinc-400">
+              {phoneDetected ? "Paused" : `${secondsTowardMinute}s / 60s`}
+            </p>
           </div>
         )}
       </div>
@@ -83,7 +101,7 @@ export function StudyCameraCard() {
             : "border border-cyan-400/30 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25"
         }`}
       >
-        {loading ? "Starting camera…" : active ? "Stop face study" : "Start face study"}
+        {loading ? "…" : active ? "Stop" : "Start"}
       </button>
     </GlowCard>
   );

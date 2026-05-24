@@ -77,6 +77,8 @@ export function BentoDashboard() {
   const checkInactivity = useTrackerStore((s) => s.checkInactivity);
   const preferences = useTrackerStore((s) => s.preferences);
   const setPreferences = useTrackerStore((s) => s.setPreferences);
+  const minimizedWidgets = useTrackerStore((s) => s.minimizedWidgets);
+  const toggleMinimized = useTrackerStore((s) => s.toggleMinimized);
 
   const { onIncrement, playLevelUp } = useMicroRewards();
   const { scheduleSync } = useLeaderboardSync();
@@ -162,6 +164,8 @@ export function BentoDashboard() {
     [dailyLogs, dailyPageLogs],
   );
 
+  const isMinimized = (id) => minimizedWidgets.includes(id);
+
   return (
     <div
       className={`relative px-5 pb-10 pt-6 transition-all duration-300 ${
@@ -209,12 +213,17 @@ export function BentoDashboard() {
         )}
 
         <div className="bento-grid">
+          
           <StatGlowCard
             outline="cyan"
             rankPulse={rankPulse}
             goalGlow={goalMet}
             perf={true}
-            className="bento-today md:col-span-2"
+            className={`bento-today group ${isMinimized("today") ? "h-fit" : ""}`}
+            id="today"
+            minimized={isMinimized("today")}
+            onToggleMinimize={toggleMinimized}
+            title={isPages ? "Today · Pages" : "Today · MCQs"}
           >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
               Today · {isPages ? "Pages" : "MCQs"}
@@ -227,7 +236,16 @@ export function BentoDashboard() {
             )}
           </StatGlowCard>
 
-          <StatGlowCard outline="violet" rankPulse={rankPulse} perf={true} className="bento-total">
+          <StatGlowCard 
+            outline="violet" 
+            rankPulse={rankPulse} 
+            perf={true} 
+            className={`bento-total group ${isMinimized("total") ? "h-fit" : ""}`}
+            id="total"
+            minimized={isMinimized("total")}
+            onToggleMinimize={toggleMinimized}
+            title="Activity total"
+          >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-violet-200/90">
               Activity total
             </p>
@@ -240,7 +258,14 @@ export function BentoDashboard() {
             </p>
           </StatGlowCard>
 
-          <GlowCard className="bento-streak" perf={true}>
+          <GlowCard 
+            id="streak"
+            className={`bento-streak group ${isMinimized("streak") ? "h-fit" : ""}`}
+            minimized={isMinimized("streak")}
+            onToggleMinimize={toggleMinimized}
+            title="Streak"
+            perf={true}
+          >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Streak</p>
             <p className="mt-2 text-4xl font-semibold text-orange-300">
               <RollingNumber value={streak} />d
@@ -253,9 +278,13 @@ export function BentoDashboard() {
           </GlowCard>
 
           <GlowCard
-            className={`bento-rank md:row-span-2 transition-all duration-500 ${
+            id="rank"
+            minimized={isMinimized("rank")}
+            onToggleMinimize={toggleMinimized}
+            title="Rank"
+            className={`bento-rank group transition-all duration-500 ${
               rankPulse ? "rank-card-spectacle glow-border animate-glow-pulse" : ""
-            }`}
+            } ${isMinimized("rank") ? "h-fit" : ""}`}
           >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Rank</p>
             <motion.p
@@ -290,7 +319,14 @@ export function BentoDashboard() {
             </div>
           </GlowCard>
 
-          <GlowCard glow={goalMet} className="bento-quick md:col-span-2 md:row-span-2">
+          <GlowCard 
+            glow={goalMet} 
+            id="quick"
+            minimized={isMinimized("quick")}
+            onToggleMinimize={toggleMinimized}
+            title="Quick add"
+            className={`bento-quick group ${isMinimized("quick") ? "h-fit" : ""}`}
+          >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Quick add</p>
             <QuickAddControls
               onAdd={handleAdd}
@@ -300,7 +336,14 @@ export function BentoDashboard() {
             />
           </GlowCard>
 
-          <GlowCard glow={goalMet} className="bento-goal">
+          <GlowCard 
+            glow={goalMet} 
+            id="goal"
+            minimized={isMinimized("goal")}
+            onToggleMinimize={toggleMinimized}
+            title="Daily goal"
+            className={`bento-goal group ${isMinimized("goal") ? "h-fit" : ""}`}
+          >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Daily goal</p>
             <div className="mt-3 flex items-center gap-4">
               <GoalRing value={todayCount} max={dailyTarget} />
@@ -332,20 +375,48 @@ export function BentoDashboard() {
             velocityTarget={velocityTarget}
             setVelocityTarget={setVelocityTarget}
             bestMomentumChain={bestMomentumChain}
+            id="speed"
+            className={`bento-speed group ${isMinimized("speed") ? "h-fit" : ""}`}
+            minimized={isMinimized("speed")}
+            onToggleMinimize={toggleMinimized}
           />
 
-          <StudyCameraCard />
+          <StudyCameraCard 
+            id="camera"
+            minimized={isMinimized("camera")}
+            onToggleMinimize={toggleMinimized}
+          />
 
-          <GlowCard className="bento-heatmap md:col-span-2">
+          <GlowCard 
+            id="heatmap"
+            minimized={isMinimized("heatmap")}
+            onToggleMinimize={toggleMinimized}
+            title="Study density"
+            className={`bento-heatmap group ${isMinimized("heatmap") ? "h-fit" : ""}`}
+          >
             <p className="mb-3 text-xs uppercase tracking-[0.22em] text-zinc-400">Study density</p>
             <ContributionGrid dailyLogs={dailyLogs} dailyPageLogs={dailyPageLogs} weeks={26} />
           </GlowCard>
 
-          <div className="bento-ladder md:col-span-2">
-            <RankLadder activityTotal={activityTotal} />
+          <div className={`bento-ladder ${isMinimized("ladder") ? "h-fit" : ""}`}>
+            <GlowCard
+              id="ladder"
+              minimized={isMinimized("ladder")}
+              onToggleMinimize={toggleMinimized}
+              title="Rank ladder"
+              className="group"
+            >
+              <RankLadder activityTotal={activityTotal} />
+            </GlowCard>
           </div>
 
-          <GlowCard className="bento-session md:col-span-2">
+          <GlowCard 
+            id="session"
+            minimized={isMinimized("session")}
+            onToggleMinimize={toggleMinimized}
+            title="Session mode"
+            className={`bento-session group ${isMinimized("session") ? "h-fit" : ""}`}
+          >
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Session mode</p>
             {!session.active ? (
               <div className="mt-2 flex gap-2">
@@ -388,7 +459,13 @@ export function BentoDashboard() {
             </button>
           </GlowCard>
 
-          <GlowCard className="bento-chart md:col-span-3">
+          <GlowCard 
+            id="chart"
+            minimized={isMinimized("chart")}
+            onToggleMinimize={toggleMinimized}
+            title="14-day history"
+            className={`bento-chart group ${isMinimized("chart") ? "h-fit" : ""}`}
+          >
             <p className="mb-3 text-xs uppercase tracking-[0.22em] text-zinc-400">14-day history</p>
             <HistoryChart data={history} />
           </GlowCard>

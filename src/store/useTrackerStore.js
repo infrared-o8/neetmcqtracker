@@ -13,9 +13,9 @@ const DEFAULT_PREFERENCES = {
   hapticsEnabled: true,
   ambientTrack: "off",
   serverUrl: "https://splendor-entertain-skintight.ngrok-free.dev",
-  youtubeAudioUrl: "",
-  youtubeVideoUrl: "",
-  bgVideoEnabled: false,
+  youtubeAudioUrl: "https://www.youtube.com/watch?v=jfKfPfyJRdk", // Lofi default
+  youtubeVideoUrl: "https://www.youtube.com/watch?v=5wT8S8pT7h0", // Aesthetic study background
+  bgVideoEnabled: true,
   currentWork: "",
   cozyPreset: "default",
 };
@@ -48,6 +48,7 @@ export const initialState = {
   studyMinutesToday: 0,
   studyMinutesDate: "",
   preferences: { ...DEFAULT_PREFERENCES },
+  minimizedWidgets: [],
   session: {
     active: false,
     durationMinutes: 0,
@@ -209,6 +210,12 @@ export const useTrackerStore = create(
         set((s) => ({
           preferences: { ...s.preferences, ...partial },
         })),
+      toggleMinimized: (id) =>
+        set((s) => ({
+          minimizedWidgets: s.minimizedWidgets.includes(id)
+            ? s.minimizedWidgets.filter((w) => w !== id)
+            : [...s.minimizedWidgets, id],
+        })),
       markMilestoneSeen: (id) =>
         set((s) => ({
           seenMilestones: s.seenMilestones.includes(id)
@@ -334,7 +341,15 @@ export const useTrackerStore = create(
       version: 2,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted, version) => {
-        if (version >= 2 && persisted) return persisted;
+        if (version >= 2 && persisted) {
+          // Patch for YouTube background if missing or empty
+          const p = persisted.preferences || {};
+          if (!p.youtubeVideoUrl) {
+            p.youtubeVideoUrl = DEFAULT_PREFERENCES.youtubeVideoUrl;
+            p.bgVideoEnabled = true;
+          }
+          return persisted;
+        }
         const v1 = loadV1State();
         const base = { ...initialState, ...(persisted || {}), ...(v1 || {}) };
         return {
@@ -384,6 +399,7 @@ export const useTrackerStore = create(
         studyMinutesToday: state.studyMinutesToday,
         studyMinutesDate: state.studyMinutesDate,
         preferences: state.preferences,
+        minimizedWidgets: state.minimizedWidgets,
         session: state.session,
         lastSessionSummary: state.lastSessionSummary,
       }),
