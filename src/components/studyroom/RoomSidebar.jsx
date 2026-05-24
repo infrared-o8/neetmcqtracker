@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { useLiveRoomStore } from '../../store/useLiveRoomStore';
 import { useState, useEffect } from 'react';
-import { useLocalParticipant } from '@livekit/components-react';
+import { useLocalParticipant, useRoomContext } from '@livekit/components-react';
+import { ConnectionState } from 'livekit-client';
 
 export function RoomSidebar({ participantCount = 0 }) {
   const { 
@@ -27,17 +28,22 @@ export function RoomSidebar({ participantCount = 0 }) {
   } = useLiveRoomStore();
   
   const { localParticipant } = useLocalParticipant();
+  const room = useRoomContext();
   const [taskDraft, setTaskDraft] = useState(currentTask);
 
   const updateMetadata = () => {
-    if (!localParticipant) return;
-    const metadata = JSON.stringify({
-      task: taskDraft,
-      isBreak: isBreakMode,
-      rank: 'Elite Aspirant' // This should come from useProfileStore in real app
-    });
-    localParticipant.setMetadata(metadata);
-    setCurrentTask(taskDraft);
+    if (!localParticipant || room.state !== ConnectionState.Connected) return;
+    try {
+      const metadata = JSON.stringify({
+        task: taskDraft,
+        isBreak: isBreakMode,
+        rank: 'Elite Aspirant'
+      });
+      localParticipant.setMetadata(metadata);
+      setCurrentTask(taskDraft);
+    } catch (e) {
+      console.warn('Failed to update metadata:', e);
+    }
   };
 
   useEffect(() => {

@@ -27,7 +27,7 @@ export default function StudyRoomPage() {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch('http://localhost:3847/api/livekit/token', {
+        const resp = await fetch('/api/livekit/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerName: displayName }),
@@ -115,7 +115,7 @@ function StudyGrid() {
       {sortedTracks.map((track) => (
         <ParticipantTile 
           key={`${track.participant.identity}-${track.source}`} 
-          participant={track.participant} 
+          trackRef={track} 
         />
       ))}
       

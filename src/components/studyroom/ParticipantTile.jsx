@@ -2,7 +2,8 @@ import {
   useTrackRefContext, 
   VideoTrack, 
   useParticipantInfo,
-  ParticipantContext
+  ParticipantContext,
+  TrackRefContext
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +12,8 @@ import { useLiveRoomStore } from '../../store/useLiveRoomStore';
 import { useThock } from '../../hooks/useThock';
 import { useState, useContext } from 'react';
 
-export function ParticipantTile({ participant }) {
+export function ParticipantTile({ trackRef }) {
+  const participant = trackRef.participant;
   const { identity, metadata } = useParticipantInfo({ participant });
   const { pinnedUsers, togglePin, mirrorVideo } = useLiveRoomStore();
   const playThock = useThock();
@@ -44,7 +46,9 @@ export function ParticipantTile({ participant }) {
       {/* Video Content */}
       <div className={`h-full w-full transition-opacity duration-500 ${isBreak ? 'opacity-40' : 'opacity-100'}`}>
         <ParticipantContext.Provider value={participant}>
-          <CustomVideoTrack identity={identity} isLocal={participant.isLocal} />
+          <TrackRefContext.Provider value={trackRef}>
+            <CustomVideoTrack identity={identity} isLocal={participant.isLocal} />
+          </TrackRefContext.Provider>
         </ParticipantContext.Provider>
       </div>
 
