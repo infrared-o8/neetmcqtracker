@@ -23,6 +23,9 @@ const DEFAULT_PREFERENCES = {
   highIntensityFx: false,
   currentWork: "",
   cozyPreset: "default",
+  aiDetectionRate: "normal", // 'normal' (1s), 'power-save' (3s), 'ultra-low' (5s)
+  enableParticleEngine: true,
+  reduceGpuUsage: false, // Disables complex radial gradients and filters
 };
 
 export const initialState = {

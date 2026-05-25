@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTrackerStore } from '../store/useTrackerStore';
 
 /**
  * Volumetric Aura Engine (Sol's RNG Style)
@@ -14,19 +15,22 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
   const particlesRef = useRef([]);
   const animationRef = useRef(null);
   const timeRef = useRef(0);
+  const preferences = useTrackerStore((s) => s.preferences);
+  const { enableParticleEngine, reduceGpuUsage } = preferences;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    if (effect === 'NONE' || !effect) {
-      const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
+
+    if (effect === 'NONE' || !effect || !enableParticleEngine) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       particlesRef.current = [];
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
       return;
     }
 
-    const ctx = canvas.getContext('2d', { alpha: true });
     let width, height, cx, cy;
 
     const resize = () => {
@@ -43,6 +47,12 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
     // --- RENDER UTILITIES ---
 
     const drawGlowPoint = (ctx, x, y, size, color, alpha) => {
+      if (reduceGpuUsage) {
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.beginPath(); ctx.arc(x, y, size * 0.5, 0, Math.PI * 2); ctx.fill();
+        return;
+      }
       const g = ctx.createRadialGradient(x, y, 0, x, y, size);
       const intensity = highIntensity ? 1.0 : 0.6;
       g.addColorStop(0, `rgba(255, 255, 255, ${alpha * intensity})`);
@@ -53,6 +63,7 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
     };
 
     const drawClockDial = (ctx, time, scale, color) => {
+      if (reduceGpuUsage) return;
       ctx.save();
       ctx.translate(cx, cy);
       ctx.scale(scale, scale);
@@ -85,11 +96,12 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
     };
 
     // --- PRESET LOGIC ---
+    const maxParticles = reduceGpuUsage ? MAX_PARTICLES / 4 : MAX_PARTICLES;
 
     const presets = {
       'kota overclock': {
         init: () => {
-          if (particlesRef.current.length < MAX_PARTICLES && Math.random() < 0.2) {
+          if (particlesRef.current.length < maxParticles && Math.random() < 0.2) {
             // Golden math equations / embers
             particlesRef.current.push({
               type: 'math',
@@ -106,7 +118,7 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
         render: (ctx, time) => {
           drawClockDial(ctx, time, 1.2, '#f59e0b');
           // Add lightning vectors occasionally
-          if (Math.random() < 0.05) {
+          if (!reduceGpuUsage && Math.random() < 0.05) {
             ctx.beginPath();
             ctx.strokeStyle = '#FFFFFF';
             ctx.lineWidth = 2;
@@ -120,7 +132,7 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
       'entropy singularity': {
         init: () => {
           // Cyan/Violet tendrils oozing inward
-          if (particlesRef.current.length < MAX_PARTICLES) {
+          if (particlesRef.current.length < maxParticles) {
             const angle = Math.random() * Math.PI * 2;
             const dist = 400 + Math.random() * 200;
             particlesRef.current.push({
@@ -136,17 +148,20 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
         },
         render: (ctx, time) => {
           // Central Void
-          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 80);
-          g.addColorStop(0, '#000000');
-          g.addColorStop(0.8, '#1a1a1a');
-          g.addColorStop(1, 'transparent');
-          ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.fill();
+          if (!reduceGpuUsage) {
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 80);
+            g.addColorStop(0, '#000000');
+            g.addColorStop(0.8, '#1a1a1a');
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.fill();
+          }
 
           // Volumetric Plasma Rings
-          ctx.lineWidth = 3;
+          ctx.lineWidth = reduceGpuUsage ? 1 : 3;
           ctx.strokeStyle = '#FFFFFF';
-          for(let i=0; i<2; i++) {
+          const rings = reduceGpuUsage ? 1 : 2;
+          for(let i=0; i<rings; i++) {
             ctx.save();
             ctx.translate(cx, cy);
             ctx.rotate(time * 0.001 * (i === 0 ? 1 : -1));
@@ -161,7 +176,8 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
       'neural overdrive': {
         init: () => {
           // Vertical jets of neon fire
-          if (particlesRef.current.length < MAX_PARTICLES && Math.random() < 0.4) {
+          const spawnChance = reduceGpuUsage ? 0.1 : 0.4;
+          if (particlesRef.current.length < maxParticles && Math.random() < spawnChance) {
             particlesRef.current.push({
               type: 'jet',
               x: (Math.random() - 0.5) * 500,
@@ -259,7 +275,9 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       particlesRef.current = [];
     };
-  }, [effect, highIntensity]);
+  }, [effect, highIntensity, enableParticleEngine, reduceGpuUsage]);
+
+  if (!enableParticleEngine) return null;
 
   return (
     <canvas

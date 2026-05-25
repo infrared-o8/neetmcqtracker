@@ -1,8 +1,11 @@
 import { useEffect, useState, useRef } from "react";
+import { useTrackerStore } from "../store/useTrackerStore";
 
 export function ThemeBackground({ cozyPreset = "default" }) {
   const [isTwilight, setIsTwilight] = useState(false);
   const rainContainerRef = useRef(null);
+  const preferences = useTrackerStore((s) => s.preferences);
+  const { uiOptimized, reduceGpuUsage } = preferences;
 
   useEffect(() => {
     const checkTime = () => {
@@ -16,10 +19,10 @@ export function ThemeBackground({ cozyPreset = "default" }) {
   }, []);
 
   useEffect(() => {
-    if ((isTwilight || cozyPreset === "monsoon") && rainContainerRef.current) {
+    if ((isTwilight || cozyPreset === "monsoon") && rainContainerRef.current && !uiOptimized) {
       // Create rain drops with simplified interaction
       const container = rainContainerRef.current;
-      const dropCount = 80;
+      const dropCount = reduceGpuUsage ? 20 : 80;
 
       const drops = [];
       for (let i = 0; i < dropCount; i++) {
@@ -33,7 +36,9 @@ export function ThemeBackground({ cozyPreset = "default" }) {
       }
 
       // Simple interaction: fade drops when they reach middle of screen (where cards are)
+      // Only run this if GPU usage isn't a concern
       const handleScroll = () => {
+        if (reduceGpuUsage) return;
         const scrollY = window.scrollY;
         drops.forEach((drop) => {
           const rect = drop.getBoundingClientRect();
@@ -45,15 +50,17 @@ export function ThemeBackground({ cozyPreset = "default" }) {
         });
       };
 
-      window.addEventListener("scroll", handleScroll);
-      handleScroll();
+      if (!reduceGpuUsage) {
+        window.addEventListener("scroll", handleScroll);
+        handleScroll();
+      }
 
       return () => {
         window.removeEventListener("scroll", handleScroll);
         container.innerHTML = "";
       };
     }
-  }, [isTwilight, cozyPreset]);
+  }, [isTwilight, cozyPreset, uiOptimized, reduceGpuUsage]);
 
   const getThemeClass = () => {
     if (cozyPreset === "library") return "library-bg";
@@ -64,8 +71,8 @@ export function ThemeBackground({ cozyPreset = "default" }) {
 
   return (
     <>
-      <div className={`mesh-bg pointer-events-none fixed inset-0 -z-10 ${getThemeClass()}`} />
-      {(isTwilight || cozyPreset === "monsoon") && (
+      <div className={`mesh-bg pointer-events-none fixed inset-0 -z-10 ${getThemeClass()} ${uiOptimized ? 'bg-zinc-950' : ''}`} />
+      {(isTwilight || cozyPreset === "monsoon") && !uiOptimized && (
         <div ref={rainContainerRef} className="twilight-rain" />
       )}
     </>

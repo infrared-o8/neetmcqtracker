@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const MOCK_UPDATES = [
   "user_482 just broke a 45-MCQ combo in organic chemistry.",
@@ -11,25 +11,11 @@ const MOCK_UPDATES = [
 ];
 
 export function LiveMarquee() {
-  const [updates, setUpdates] = useState(MOCK_UPDATES);
-  const [position, setPosition] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPosition((prev) => (prev - 1) % (updates.length * 400));
-    }, 30);
-    return () => clearInterval(interval);
-  }, [updates.length]);
+  const [updates] = useState(MOCK_UPDATES);
 
   return (
     <div className="overflow-hidden border-b border-white/5 bg-black/40 py-2">
-      <div
-        className="flex whitespace-nowrap font-mono text-[10px] text-zinc-500"
-        style={{
-          transform: `translateX(${position}px)`,
-          willChange: "transform",
-        }}
-      >
+      <div className="flex w-max animate-marquee whitespace-nowrap font-mono text-[10px] text-zinc-500 will-change-transform">
         {updates.map((update, idx) => (
           <span key={`${update}-${idx}`} className="mx-8">
             <span className="text-cyan-400">›</span> {update}
@@ -41,6 +27,15 @@ export function LiveMarquee() {
           </span>
         ))}
       </div>
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          animation: marquee 30s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }

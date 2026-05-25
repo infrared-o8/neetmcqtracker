@@ -219,7 +219,7 @@ export function BentoDashboard() {
             width={windowSize.width}
             height={windowSize.height}
             recycle={false}
-            numberOfPieces={rankPulse ? 280 : 180}
+            numberOfPieces={preferences.reduceGpuUsage ? 50 : (rankPulse ? 280 : 180)}
             gravity={0.18}
           />
         )}

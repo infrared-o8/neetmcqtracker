@@ -1,11 +1,14 @@
 import { useRef, useState } from "react";
+import { useTrackerStore } from "../../store/useTrackerStore";
 
 export function TiltCard({ className = "", lowSheen = false, children }) {
   const ref = useRef(null);
   const [transform, setTransform] = useState("");
   const [sheen, setSheen] = useState({ x: 50, y: 50 });
+  const reduceGpuUsage = useTrackerStore((s) => s.preferences.reduceGpuUsage);
 
   const onMove = (e) => {
+    if (reduceGpuUsage) return;
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -18,6 +21,7 @@ export function TiltCard({ className = "", lowSheen = false, children }) {
   };
 
   const onLeave = () => {
+    if (reduceGpuUsage) return;
     setTransform("perspective(800px) rotateX(0) rotateY(0) scale3d(1,1,1)");
   };
 
@@ -29,12 +33,14 @@ export function TiltCard({ className = "", lowSheen = false, children }) {
       onMouseMove={onMove}
       onMouseLeave={onLeave}
     >
-      <div
-        className={`pointer-events-none absolute inset-0 ${lowSheen ? "opacity-[0.12]" : "opacity-40"}`}
-        style={{
-          background: `radial-gradient(circle at ${sheen.x}% ${sheen.y}%, rgba(255,255,255,${lowSheen ? "0.18" : "0.25"}), transparent 55%)`,
-        }}
-      />
+      {!reduceGpuUsage && (
+        <div
+          className={`pointer-events-none absolute inset-0 ${lowSheen ? "opacity-[0.12]" : "opacity-40"}`}
+          style={{
+            background: `radial-gradient(circle at ${sheen.x}% ${sheen.y}%, rgba(255,255,255,${lowSheen ? "0.18" : "0.25"}), transparent 55%)`,
+          }}
+        />
+      )}
       <div className="relative z-10">{children}</div>
     </div>
   );

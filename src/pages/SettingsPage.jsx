@@ -200,6 +200,57 @@ export function SettingsPage() {
             />
           </label>
 
+          <label className="flex cursor-pointer items-center justify-between group border-t border-white/5 pt-4">
+            <div className="flex items-center gap-3">
+              <Zap className="h-4 w-4 text-zinc-500 group-hover:text-cyan-400 transition" />
+              <div>
+                <p className="text-sm text-zinc-200">Reduce GPU Usage</p>
+                <p className="text-[10px] text-zinc-500">Disables complex shaders, tilt effects, and heavy gradients</p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.reduceGpuUsage}
+              onChange={(e) => setPreferences({ reduceGpuUsage: e.target.checked })}
+              className="h-5 w-5 rounded border-white/20 accent-cyan-500"
+            />
+          </label>
+
+          <label className="flex cursor-pointer items-center justify-between group border-t border-white/5 pt-4">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-4 w-4 text-zinc-500 group-hover:text-cyan-400 transition" />
+              <div>
+                <p className="text-sm text-zinc-200">Enable Particle Engine</p>
+                <p className="text-[10px] text-zinc-500">Enable/Disable the background aura effects</p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.enableParticleEngine}
+              onChange={(e) => setPreferences({ enableParticleEngine: e.target.checked })}
+              className="h-5 w-5 rounded border-white/20 accent-cyan-500"
+            />
+          </label>
+
+          <div className="flex flex-col gap-2 border-t border-white/5 pt-4">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-4 w-4 text-zinc-500" />
+              <div>
+                <p className="text-sm text-zinc-200">AI Detection Rate</p>
+                <p className="text-[10px] text-zinc-500">Higher intervals reduce CPU/GPU stutter during scanning</p>
+              </div>
+            </div>
+            <select
+              value={preferences.aiDetectionRate}
+              onChange={(e) => setPreferences({ aiDetectionRate: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-white/10 bg-zinc-900/70 px-4 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400/40"
+            >
+              <option value="normal">Normal (1s interval)</option>
+              <option value="power-save">Power Save (3s interval)</option>
+              <option value="ultra-low">Ultra Low (5s interval)</option>
+            </select>
+          </div>
+
           <div className="border-t border-white/5 pt-4 mt-4">
             {!showDevToggle ? (
               <input

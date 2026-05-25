@@ -11,8 +11,10 @@ const SECONDS_PER_MINUTE = 60;
 
 export function FaceStudyProvider({ children }) {
   const addStudyMinute = useTrackerStore((s) => s.addStudyMinute);
+  const preferences = useTrackerStore((s) => s.preferences);
 
   const [active, setActive] = useState(false);
+  // ... rest of state ...
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [faceDetected, setFaceDetected] = useState(false);
@@ -87,6 +89,11 @@ export function FaceStudyProvider({ children }) {
       setActive(true);
 
       if (tickRef.current) clearInterval(tickRef.current);
+
+      const detectionInterval = 
+        preferences.aiDetectionRate === "power-save" ? 3000 : 
+        preferences.aiDetectionRate === "ultra-low" ? 5000 : 1000;
+
       tickRef.current = setInterval(async () => {
         const video = videoRef.current;
         const faceModel = faceModelRef.current;
@@ -126,8 +133,9 @@ export function FaceStudyProvider({ children }) {
           // Advanced Intelligence: Study minute logic
           // Only increment if face is detected AND NO phone is detected
           if (hasFace && !hasPhone) {
-            consecutiveRef.current += 1;
-            setSecondsTowardMinute(consecutiveRef.current);
+            const increment = detectionInterval / 1000;
+            consecutiveRef.current += increment;
+            setSecondsTowardMinute(Math.floor(consecutiveRef.current));
             if (consecutiveRef.current >= SECONDS_PER_MINUTE) {
               addStudyMinute();
               useTrackerStore.setState((s) => ({ xp: s.xp + 1 }));
@@ -136,28 +144,23 @@ export function FaceStudyProvider({ children }) {
               setSecondsTowardMinute(0);
             }
           } else {
-            // If distracted (phone) or gone (no face), don't reset immediately?
-            // User requested "intelligence", maybe a grace period?
-            // For now, strict: reset if phone, or pause if no face.
             if (hasPhone) {
-              // Penalty or strict pause
-              consecutiveRef.current = Math.max(0, consecutiveRef.current - 2); // Penalize phone use
-            } else {
-              // Just pause if no face
+              const penalty = (detectionInterval / 1000) * 2;
+              consecutiveRef.current = Math.max(0, consecutiveRef.current - penalty);
             }
-            setSecondsTowardMinute(consecutiveRef.current);
+            setSecondsTowardMinute(Math.floor(consecutiveRef.current));
           }
         } catch (err) {
           console.error("Detection error:", err);
         }
-      }, TICK_MS);
+      }, detectionInterval);
     } catch (e) {
       setError(e.message || "Camera access denied or unavailable.");
       stopCamera();
     } finally {
       setLoading(false);
     }
-  }, [addStudyMinute, stopCamera, triggerMinuteReward]);
+  }, [addStudyMinute, stopCamera, triggerMinuteReward, preferences.aiDetectionRate]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 

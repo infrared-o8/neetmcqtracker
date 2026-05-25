@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { useTrackerStore } from "../../store/useTrackerStore";
 
 export function GlowCard({ 
   glow = false, 
@@ -10,9 +11,14 @@ export function GlowCard({
   onToggleMinimize,
   title // Used as label in minimized state
 }) {
+  const preferences = useTrackerStore((s) => s.preferences);
+  const { reduceGpuUsage, uiOptimized } = preferences;
+  const isGlowEnabled = glow && !reduceGpuUsage;
+  const usePerfGlass = perf || reduceGpuUsage || uiOptimized;
+
   return (
     <div
-      className={`${perf ? "perf-glass" : "genz-glass"} relative overflow-hidden rounded-3xl transition-all duration-500 ${glow ? "glow-border animate-glow-pulse" : ""} ${className} ${minimized ? "min-h-[32px]" : ""}`}
+      className={`${usePerfGlass ? "perf-glass" : "genz-glass"} relative overflow-hidden rounded-3xl transition-all duration-500 ${isGlowEnabled ? "glow-border animate-glow-pulse" : ""} ${className} ${minimized ? "min-h-[32px]" : ""}`}
     >
       {/* Minimize Toggle - Absolute Positioned & Centered */}
       <button
