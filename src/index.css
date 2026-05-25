@@ -757,6 +757,10 @@ body {
   animation: breathe-break 4s ease-in-out infinite;
 }
 
+.react-grid-item {
+  transition: none !important;
+}
+
 .react-grid-placeholder {
   background: rgba(34, 211, 238, 0.05) !important;
   border-radius: 1.5rem !important;

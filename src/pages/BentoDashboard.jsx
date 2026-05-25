@@ -55,7 +55,7 @@ function buildHistory(dailyLogs, dailyPageLogs, days = 14) {
 
 const DEFAULT_LAYOUTS = {
   lg: [
-    { i: "focus", x: 0, y: 0, w: 12, h: 10, static: false },
+    { i: "focus", x: 0, y: 0, w: 12, h: 10 },
     { i: "today", x: 0, y: 10, w: 8, h: 7 },
     { i: "total", x: 8, y: 10, w: 4, h: 4 },
     { i: "streak", x: 8, y: 14, w: 4, h: 3 },
@@ -67,6 +67,20 @@ const DEFAULT_LAYOUTS = {
     { i: "heatmap", x: 8, y: 23, w: 4, h: 15 },
     { i: "ladder", x: 0, y: 38, w: 12, h: 8 },
     { i: "chart", x: 0, y: 46, w: 12, h: 10 },
+  ],
+  md: [
+    { i: "focus", x: 0, y: 0, w: 10, h: 10 },
+    { i: "today", x: 0, y: 10, w: 6, h: 7 },
+    { i: "total", x: 6, y: 10, w: 4, h: 4 },
+    { i: "streak", x: 6, y: 14, w: 4, h: 3 },
+    { i: "rank", x: 0, y: 17, w: 4, h: 6 },
+    { i: "quick", x: 4, y: 17, w: 6, h: 3 },
+    { i: "goal", x: 4, y: 20, w: 3, h: 3 },
+    { i: "speed", x: 7, y: 20, w: 3, h: 3 },
+    { i: "camera", x: 0, y: 23, w: 10, h: 14 },
+    { i: "heatmap", x: 0, y: 37, w: 10, h: 12 },
+    { i: "ladder", x: 0, y: 49, w: 10, h: 8 },
+    { i: "chart", x: 0, y: 57, w: 10, h: 10 },
   ],
 };
 
