@@ -11,7 +11,7 @@ export function LeaderboardRow({
   onOpenProfile,
 }) {
   const decor = { ...DEFAULT_DECOR, ...(player.decor || {}) };
-  const frame = FRAMES[decor.frameId] || FRAMES.common;
+  const frame = FRAMES[decor.frameId] || FRAMES['c1'] || { border: '', glow: '' };
 
   return (
     <tr

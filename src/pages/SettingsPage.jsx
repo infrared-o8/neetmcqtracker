@@ -184,6 +184,22 @@ export function SettingsPage() {
             />
           </label>
 
+          <label className="flex cursor-pointer items-center justify-between group border-t border-white/5 pt-4">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-4 w-4 text-zinc-500 group-hover:text-cyan-400 transition" />
+              <div>
+                <p className="text-sm text-zinc-200">High Intensity FX (Sol's RNG)</p>
+                <p className="text-[10px] text-zinc-500">Boosts particle counts and glowing effects for a massive aura</p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.highIntensityFx}
+              onChange={(e) => setPreferences({ highIntensityFx: e.target.checked })}
+              className="h-5 w-5 rounded border-white/20 accent-cyan-500"
+            />
+          </label>
+
           <div className="border-t border-white/5 pt-4 mt-4">
             {!showDevToggle ? (
               <input

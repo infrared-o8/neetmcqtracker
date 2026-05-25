@@ -102,6 +102,7 @@ export function BentoDashboard() {
   const removeFirstPendingCrate = useProfileStore((s) => s.removeFirstPendingCrate);
   const addPendingCrate = useProfileStore((s) => s.addPendingCrate);
   const [prevAp, setPrevAp] = useState(activityTotal);
+  const [deferredCratesCount, setDeferredCratesCount] = useState(0);
 
   const today = getTodayKey();
   const todaySolved = dailyLogs[today] ?? 0;
@@ -202,10 +203,14 @@ export function BentoDashboard() {
       }`}
     >
       <AnimatePresence>
-        {pendingCrates.length > 0 && (
+        {pendingCrates.length > deferredCratesCount && (
           <CaseUnlockView 
-            crateType={pendingCrates[0]} 
-            onDismiss={removeFirstPendingCrate} 
+            crateType={pendingCrates[deferredCratesCount]} 
+            onDismiss={() => {
+              removeFirstPendingCrate();
+              // If we open a crate, we don't need to skip it anymore
+            }} 
+            onSave={() => setDeferredCratesCount(v => v + 1)}
           />
         )}
         {(goalMet || rankPulse) && (

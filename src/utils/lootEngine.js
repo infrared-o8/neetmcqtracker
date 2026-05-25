@@ -3,41 +3,45 @@
  * Governs drop eligibility, item rolling, and rarity weights.
  */
 
+import { FRAMES } from '../data/profileDecor';
+
 export const RARITY_TIERS = {
-  COMMON: { label: 'Common', chance: 0.65, color: '#71717a', accent: 'zinc' },
-  RARE: { label: 'Rare', chance: 0.22, color: '#10b981', accent: 'emerald' },
-  EPIC: { label: 'Epic', chance: 0.095, color: '#a855f7', accent: 'amethyst' },
-  LEGENDARY: { label: 'Legendary', chance: 0.03, color: '#f59e0b', accent: 'aura' },
-  MYTHIC: { label: 'Mythic', chance: 0.005, color: '#ef4444', accent: 'air-apex' },
+  common: { label: 'Common', chance: 0.65, color: '#71717a', accent: 'zinc' },
+  rare: { label: 'Rare', chance: 0.22, color: '#10b981', accent: 'emerald' },
+  epic: { label: 'Epic', chance: 0.095, color: '#a855f7', accent: 'amethyst' },
+  legendary: { label: 'Legendary', chance: 0.03, color: '#f59e0b', accent: 'aura' },
+  mythic: { label: 'Mythic', chance: 0.005, color: '#ef4444', accent: 'air-apex' },
 };
+
+// Build the frames array directly from the FRAMES dictionary to keep a single source of truth
+const frameItems = Object.entries(FRAMES).map(([id, data]) => ({
+  id,
+  label: data.name || id.toUpperCase(), // Using ID if name is missing
+  rarity: data.rarity,
+  style: `${data.border} ${data.glow}`
+}));
 
 export const LOOT_ITEMS = {
   titles: [
-    { id: 't1', label: 'Module Finisher', rarity: 'COMMON' },
-    { id: 't2', label: 'NCERT Sweeper', rarity: 'COMMON' },
-    { id: 't3', label: 'Backlog Slayer', rarity: 'RARE' },
-    { id: 't4', label: 'Formula Alchemist', rarity: 'RARE' },
-    { id: 't5', label: '14-Hour Sentinel', rarity: 'EPIC' },
-    { id: 't6', label: 'Error Book Devotee', rarity: 'EPIC' },
-    { id: 't7', label: '700+ Club Projector', rarity: 'LEGENDARY' },
-    { id: 't8', label: 'Star Batch Weapon', rarity: 'LEGENDARY' },
-    { id: 't9', label: 'AIR < 100 Catalyst', rarity: 'MYTHIC' },
-    { id: 't10', label: 'The Kota Legend', rarity: 'MYTHIC' },
+    { id: 't1', label: 'Module Finisher', rarity: 'common' },
+    { id: 't2', label: 'NCERT Sweeper', rarity: 'common' },
+    { id: 't3', label: 'Backlog Slayer', rarity: 'rare' },
+    { id: 't4', label: 'Formula Alchemist', rarity: 'rare' },
+    { id: 't5', label: '14-Hour Sentinel', rarity: 'epic' },
+    { id: 't6', label: 'Error Book Devotee', rarity: 'epic' },
+    { id: 't7', label: '700+ Club Projector', rarity: 'legendary' },
+    { id: 't8', label: 'Star Batch Weapon', rarity: 'legendary' },
+    { id: 't9', label: 'AIR < 100 Catalyst', rarity: 'mythic' },
+    { id: 't10', label: 'The Kota Legend', rarity: 'mythic' },
   ],
-  frames: [
-    { id: 'f1', label: 'Zinc Matte', rarity: 'COMMON', style: 'border-zinc-700 bg-zinc-800/40' },
-    { id: 'f2', label: 'Emerald Neon', rarity: 'RARE', style: 'border-emerald-500/40 bg-gradient-to-r from-emerald-900/30 to-teal-950/30' },
-    { id: 'f3', label: 'Amethyst Pulse', rarity: 'EPIC', style: 'animate-pulse border-purple-500/50 bg-gradient-to-r from-purple-900/40 via-fuchsia-950/30 to-indigo-900/40' },
-    { id: 'f4', label: 'Aura Glow', rarity: 'LEGENDARY', style: 'border-amber-500/70 shadow-[0_0_25px_rgba(245,158,11,0.3)] bg-gradient-to-br from-amber-900/20 to-orange-950/20' },
-    { id: 'f5', label: 'Apex Chroma', rarity: 'MYTHIC', style: 'border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-gradient bg-gradient-to-r from-red-600/20 via-orange-500/20 to-yellow-500/20' },
-  ]
+  frames: frameItems
 };
 
 /** Roll for an item based on weighted probability */
 export function rollLoot() {
   const roll = Math.random();
   let cumulative = 0;
-  let selectedRarity = 'COMMON';
+  let selectedRarity = 'common';
 
   // Determine rarity tier
   for (const [tier, data] of Object.entries(RARITY_TIERS)) {

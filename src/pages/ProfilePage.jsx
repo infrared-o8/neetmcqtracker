@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { useProfileStore } from "../store/useProfileStore";
 import { useLeaderboardSync } from "../hooks/useLeaderboardSync";
@@ -61,6 +62,15 @@ export default function ProfilePage() {
     return acc;
   }, {});
 
+  // Group frames by label for stacking (xN)
+  const groupedFrames = unlockedFrames.reduce((acc, item) => {
+    if (!acc[item.label]) {
+      acc[item.label] = { ...item, count: 0 };
+    }
+    acc[item.label].count += 1;
+    return acc;
+  }, {});
+
   return (
     <div className="mx-auto max-w-4xl px-5 py-8 pb-32">
       {openingCrate && (
@@ -70,6 +80,7 @@ export default function ProfilePage() {
             setOpeningCrate(false);
             removeFirstPendingCrate();
           }} 
+          onSave={() => setOpeningCrate(false)}
         />
       )}
 
@@ -260,21 +271,21 @@ export default function ProfilePage() {
                   <Trophy className="h-3 w-3" /> Showcase Frames
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Only Common is unlocked for all by default */}
-                  {Object.entries(FRAMES).filter(([id]) => id === 'common').map(([id, frame]) => (
+                  {/* All Common rarity frames are unlocked for all by default */}
+                  {Object.entries(FRAMES).filter(([id, f]) => f.rarity === 'common').map(([id, frame]) => (
                     <button
                       key={id}
                       onClick={() => { setDecor({ frameId: id, customFrameStyle: null }); saveProfile(); }}
-                      className={`relative overflow-hidden rounded-[1.5rem] border-2 p-5 text-left transition-all ${frame.border} bg-zinc-900/40 ${
+                      className={`relative overflow-hidden rounded-[1.5rem] border-2 p-5 text-left transition-all ${frame.border} ${
                         decor.frameId === id && !decor.customFrameStyle ? "ring-2 ring-white ring-offset-4 ring-offset-black scale-[1.02]" : "opacity-60 hover:opacity-100"
                       }`}
                     >
-                      <p className="text-xs font-black uppercase text-white">{id}</p>
+                      <p className="text-xs font-black uppercase text-white">{frame.name || id}</p>
                       <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">Starter Rarity</p>
                     </button>
                   ))}
-                  {/* Premium Unlocked Frames */}
-                  {unlockedFrames.map(item => (
+                  {/* Premium Unlocked Frames (Stacked) */}
+                  {Object.values(groupedFrames).map(item => (
                     <button
                       key={item.id}
                       onClick={() => { setDecor({ frameId: item.id, customFrameStyle: item.style }); saveProfile(); }}
@@ -282,9 +293,14 @@ export default function ProfilePage() {
                         decor.frameId === item.id ? "ring-2 ring-white ring-offset-4 ring-offset-black scale-[1.02]" : "opacity-80 hover:opacity-100"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-black uppercase text-white">{item.label}</p>
-                        <Sparkles className="h-4 w-4" style={{ color: item.rarityData.color }} />
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-black uppercase text-white truncate flex-1">{item.label}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {item.count > 1 && (
+                            <span className="bg-black/60 px-1.5 py-0.5 rounded text-[8px] border border-white/20 text-white font-black">x{item.count}</span>
+                          )}
+                          <Sparkles className="h-4 w-4" style={{ color: item.rarityData.color }} />
+                        </div>
                       </div>
                       <p className="text-[8px] font-black uppercase mt-1" style={{ color: item.rarityData.color }}>{item.rarityData.label} UNLOCK</p>
                     </button>

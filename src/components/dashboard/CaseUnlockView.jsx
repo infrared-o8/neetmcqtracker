@@ -5,7 +5,7 @@ import { Package, Sparkles, X, ChevronRight, Trophy } from 'lucide-react';
 import { RARITY_TIERS, rollLoot } from '../../utils/lootEngine';
 import { useProfileStore } from '../../store/useProfileStore';
 
-export function CaseUnlockView({ crateType, onDismiss }) {
+export function CaseUnlockView({ crateType, onDismiss, onSave }) {
   const [isRevealing, setIsRevealing] = useState(false);
   const [wonItem, setWonItem] = useState(null);
   const { addUnlockedItem } = useProfileStore();
@@ -62,16 +62,26 @@ export function CaseUnlockView({ crateType, onDismiss }) {
                 Milestone Reward Earned
               </p>
 
-              <button
-                onClick={handleUnlock}
-                disabled={isRevealing}
-                className="group relative mt-8 w-full overflow-hidden rounded-2xl bg-white py-4 text-sm font-black uppercase tracking-[0.2em] text-black transition-all active:scale-95 disabled:opacity-50"
-              >
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  Unlock Crate <ChevronRight className="h-4 w-4" />
-                </span>
-                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-black/5 to-transparent transition-transform group-hover:translate-x-full" />
-              </button>
+              <div className="mt-8 flex flex-col gap-3">
+                <button
+                  onClick={handleUnlock}
+                  disabled={isRevealing}
+                  className="group relative w-full overflow-hidden rounded-2xl bg-white py-4 text-sm font-black uppercase tracking-[0.2em] text-black transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    Unlock Now <ChevronRight className="h-4 w-4" />
+                  </span>
+                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-black/5 to-transparent transition-transform group-hover:translate-x-full" />
+                </button>
+                
+                <button
+                  onClick={onSave || onDismiss}
+                  disabled={isRevealing}
+                  className="w-full rounded-2xl border border-white/10 bg-zinc-800/40 py-3 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:bg-zinc-800 hover:text-white transition"
+                >
+                  Save for later
+                </button>
+              </div>
             </motion.div>
           ) : (
             <motion.div

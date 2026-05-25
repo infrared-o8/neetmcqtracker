@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { StudySidebar } from "./components/StudySidebar";
 import { YoutubeMedia } from "./components/YoutubeMedia";
 import { ThemeBackground } from "./components/ThemeBackground";
+import { ParticleEngine } from "./components/ParticleEngine";
 import { Dashboard } from "./pages/Dashboard";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -13,12 +14,14 @@ import { useProfileStore } from "./store/useProfileStore";
 import { useTrackerStore } from "./store/useTrackerStore";
 import { FaceStudyProvider } from "./context/FaceStudyProvider";
 import { useThock } from "./hooks/useThock";
+import { FRAMES } from "./data/profileDecor";
 
 const MotionDiv = motion.div;
 
 function App() {
   const ensurePlayerId = useProfileStore((s) => s.ensurePlayerId);
   const preferences = useTrackerStore((s) => s.preferences);
+  const decor = useProfileStore((s) => s.decor);
   const playClick = useThock();
 
   useEffect(() => {
@@ -40,6 +43,8 @@ function App() {
     window.addEventListener("click", handleGlobalClick, { capture: true });
     return () => window.removeEventListener("click", handleGlobalClick, { capture: true });
   }, [playClick]);
+
+  const activeEffect = FRAMES[decor.frameId]?.name || 'NONE';
 
   return (
     <BrowserRouter>

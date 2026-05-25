@@ -20,6 +20,7 @@ const DEFAULT_PREFERENCES = {
   showAiSelfView: true,
   disableAnimations: false,
   devModeEnabled: false,
+  highIntensityFx: false,
   currentWork: "",
   cozyPreset: "default",
 };
