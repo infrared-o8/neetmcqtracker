@@ -29,12 +29,23 @@ import {
   getTodayKey,
 } from '../utils/gamification';
 
+import { FaceStudyTopBar } from '../components/study/FaceStudyTopBar';
+import { useFaceStudyContext } from '../hooks/useFaceStudyContext';
+
 export default function StudyRoomPage() {
   const [token, setToken] = useState(null);
   const [lkUrl, setLkUrl] = useState(null);
   const [error, setError] = useState(null);
   const [showBottomStats, setShowStats] = useState(false);
   
+  const { startCamera, stopCamera, videoRef } = useFaceStudyContext();
+
+  useEffect(() => {
+    // Automatically start AI tracking when entering the room
+    startCamera();
+    return () => stopCamera();
+  }, []); // Remove dependencies to prevent rapid restart
+
   const displayName = useProfileStore((s) => s.displayName) || 'Aspirant';
   const serverUrl = useTrackerStore((s) => s.preferences.serverUrl);
   const { pinnedUsers, gridTileSize, setGridTileSize } = useLiveRoomStore();
@@ -140,52 +151,56 @@ export default function StudyRoomPage() {
   }
 
   return (
-    <LiveKitRoom
-      video={true}
-      audio={false} 
-      token={token}
-      serverUrl={lkUrl}
-      onConnected={() => console.log('Connected to LiveKit')}
-      onDisconnected={() => setToken(null)}
-      className="flex h-full flex-col overflow-hidden bg-zinc-950/20"
-    >
-      <div className="flex h-full flex-1 overflow-hidden relative">
-        {/* Left Panel: Sidebar Stack */}
-        <aside className="hidden w-[320px] shrink-0 flex-col border-r border-white/5 bg-zinc-900/20 backdrop-blur-md lg:flex">
-          <div className="flex-1 overflow-y-auto">
-            <RoomSidebarContent />
-          </div>
-        </aside>
+    <>
+      <LiveKitRoom
+        video={true}
+        audio={false} 
+        token={token}
+        serverUrl={lkUrl}
+        onConnected={() => console.log('Connected to LiveKit')}
+        onDisconnected={() => setToken(null)}
+        className="flex h-full flex-col overflow-hidden bg-zinc-950/20"
+      >
+        {/* Hidden video for AI detection logic */}
+        <video ref={videoRef} className="hidden" playsInline muted />
 
-        {/* Main Panel: Fluid Grid */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 md:p-6 lg:p-8">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <LayoutDashboard className="h-4 w-4 text-fuchsia-400" />
-                <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Collaborative Grid</h2>
-              </div>
-              <div className="flex items-center gap-1 rounded-lg bg-black/40 p-1 border border-white/5">
-                {(['small', 'medium', 'large']).map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setGridTileSize(size)}
-                    className={`rounded px-2 py-1 text-[10px] font-bold uppercase transition ${
-                      gridTileSize === size 
-                        ? 'bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/20' 
-                        : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >
-                    {size[0]}
-                  </button>
-                ))}
-              </div>
+        <div className="flex h-full flex-1 overflow-hidden relative">
+          {/* Left Panel: Sidebar Stack */}
+          <aside className="hidden w-[320px] shrink-0 flex-col border-r border-white/5 bg-zinc-900/20 backdrop-blur-md lg:flex">
+            <div className="flex-1 overflow-y-auto">
+              <RoomSidebarContent />
             </div>
-            
-            <StudyGrid />
+          </aside>
 
-            {/* Collapsible Personal Tracker - Positioned below grid */}
-            <div className="mt-12 rounded-3xl border border-white/5 bg-zinc-900/20 backdrop-blur-md overflow-hidden">
+          {/* Main Panel: Fluid Grid */}
+          <main className="flex-1 overflow-y-auto pb-24">
+            <div className="p-4 md:p-6 lg:p-8">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LayoutDashboard className="h-4 w-4 text-fuchsia-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Collaborative Grid</h2>
+                </div>
+                <div className="flex items-center gap-1 rounded-lg bg-black/40 p-1 border border-white/5">
+                  {(['small', 'medium', 'large']).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setGridTileSize(size)}
+                      className={`rounded px-2 py-1 text-[10px] font-bold uppercase transition ${
+                        gridTileSize === size 
+                          ? 'bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/20' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      {size[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <StudyGrid />
+
+              {/* Collapsible Personal Tracker - Positioned below grid */}
+              <div className="mt-12 rounded-3xl border border-white/5 bg-zinc-900/20 backdrop-blur-md overflow-hidden">
               <button 
                 onClick={() => setShowStats(!showBottomStats)}
                 className="flex w-full items-center justify-center gap-2 py-3 text-zinc-500 hover:text-zinc-300 transition group relative"
@@ -282,6 +297,8 @@ export default function StudyRoomPage() {
 
       <RoomAudioRenderer />
     </LiveKitRoom>
+    <FaceStudyTopBar />
+    </>
   );
 }
 

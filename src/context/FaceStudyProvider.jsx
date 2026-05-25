@@ -52,15 +52,10 @@ export function FaceStudyProvider({ children }) {
   }, []);
 
   const startCamera = useCallback(async () => {
-    // If already active and stream exists, just re-attach to the current videoRef if needed
+    // If already active and stream exists, just re-attach
     if (streamRef.current && videoRef.current) {
       if (videoRef.current.srcObject !== streamRef.current) {
         videoRef.current.srcObject = streamRef.current;
-        try {
-          await videoRef.current.play();
-        } catch (e) {
-          console.warn("Auto-play blocked or failed on re-attach:", e);
-        }
       }
       setActive(true);
       return;
@@ -68,99 +63,98 @@ export function FaceStudyProvider({ children }) {
 
     setError("");
     setLoading(true);
-    try {
-      // Load both models if not already loaded
-      if (!faceModelRef.current) {
-        faceModelRef.current = await blazeface.load();
-      }
-      if (!objectModelRef.current) {
-        objectModelRef.current = await cocoSsd.load();
-      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setActive(true);
-
-      if (tickRef.current) clearInterval(tickRef.current);
-
-      const detectionInterval = 
-        preferences.aiDetectionRate === "power-save" ? 3000 : 
-        preferences.aiDetectionRate === "ultra-low" ? 5000 : 1000;
-
-      tickRef.current = setInterval(async () => {
-        const video = videoRef.current;
-        const faceModel = faceModelRef.current;
-        const objectModel = objectModelRef.current;
-        if (!video || !faceModel || !objectModel || video.readyState < 2) return;
-
-        try {
-          // Parallel detection
-          const [faces, objects] = await Promise.all([
-            faceModel.estimateFaces(video, false),
-            objectModel.detect(video),
-          ]);
-
-          // Face logic
-          const bestFace =
-            faces.length > 0
-              ? Math.max(
-                  ...faces.map((p) => {
-                    const prob = p.probability;
-                    if (typeof prob === "number") return prob;
-                    if (Array.isArray(prob)) return prob[0] ?? 0;
-                    return 0;
-                  }),
-                )
-              : 0;
-          
-          setConfidence(bestFace);
-          const hasFace = bestFace >= FACE_THRESHOLD;
-          setFaceDetected(hasFace);
-
-          // Phone logic
-          const hasPhone = objects.some(
-            (obj) => obj.class === "cell phone" && obj.score > 0.5
-          );
-          setPhoneDetected(hasPhone);
-
-          // Advanced Intelligence: Study minute logic
-          // Only increment if face is detected AND NO phone is detected
-          if (hasFace && !hasPhone) {
-            const increment = detectionInterval / 1000;
-            consecutiveRef.current += increment;
-            setSecondsTowardMinute(Math.floor(consecutiveRef.current));
-            if (consecutiveRef.current >= SECONDS_PER_MINUTE) {
-              addStudyMinute();
-              useTrackerStore.setState((s) => ({ xp: s.xp + 1 }));
-              triggerMinuteReward();
-              consecutiveRef.current = 0;
-              setSecondsTowardMinute(0);
-            }
-          } else {
-            if (hasPhone) {
-              const penalty = (detectionInterval / 1000) * 2;
-              consecutiveRef.current = Math.max(0, consecutiveRef.current - penalty);
-            }
-            setSecondsTowardMinute(Math.floor(consecutiveRef.current));
-          }
-        } catch (err) {
-          console.error("Detection error:", err);
+    // Run resource-heavy model loading and stream acquisition asynchronously to prevent UI freeze
+    setTimeout(async () => {
+      try {
+        if (!faceModelRef.current) {
+          faceModelRef.current = await blazeface.load();
         }
-      }, detectionInterval);
-    } catch (e) {
-      setError(e.message || "Camera access denied or unavailable.");
-      stopCamera();
-    } finally {
-      setLoading(false);
-    }
-  }, [addStudyMinute, stopCamera, triggerMinuteReward, preferences.aiDetectionRate]);
+        if (!objectModelRef.current) {
+          objectModelRef.current = await cocoSsd.load();
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+        
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          // Use onloadedmetadata to ensure video is ready without blocking the main loop
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current.play().catch(console.error);
+            setActive(true);
+            setLoading(false);
+            startDetectionLoop();
+          };
+        } else {
+          setActive(true);
+          setLoading(false);
+          startDetectionLoop();
+        }
+      } catch (e) {
+        console.error("Camera start error:", e);
+        setError(e.message || "Camera access denied or unavailable.");
+        stopCamera();
+        setLoading(false);
+      }
+    }, 10);
+  }, [stopCamera, preferences.aiDetectionRate]);
+
+  const startDetectionLoop = useCallback(() => {
+    if (tickRef.current) clearInterval(tickRef.current);
+
+    const detectionInterval = 
+      preferences.aiDetectionRate === "power-save" ? 3000 : 
+      preferences.aiDetectionRate === "ultra-low" ? 5000 : 1000;
+
+    tickRef.current = setInterval(async () => {
+      const video = videoRef.current;
+      const faceModel = faceModelRef.current;
+      const objectModel = objectModelRef.current;
+      if (!video || !faceModel || !objectModel || video.readyState < 2) return;
+
+      try {
+        const [faces, objects] = await Promise.all([
+          faceModel.estimateFaces(video, false),
+          objectModel.detect(video),
+        ]);
+
+        const bestFace = faces.length > 0 ? Math.max(...faces.map(p => {
+          const prob = p.probability;
+          return typeof prob === "number" ? prob : (Array.isArray(prob) ? prob[0] ?? 0 : 0);
+        })) : 0;
+        
+        setConfidence(bestFace);
+        const hasFace = bestFace >= FACE_THRESHOLD;
+        setFaceDetected(hasFace);
+
+        const hasPhone = objects.some(obj => obj.class === "cell phone" && obj.score > 0.5);
+        setPhoneDetected(hasPhone);
+
+        if (hasFace && !hasPhone) {
+          const increment = detectionInterval / 1000;
+          consecutiveRef.current += increment;
+          setSecondsTowardMinute(Math.floor(consecutiveRef.current));
+          if (consecutiveRef.current >= SECONDS_PER_MINUTE) {
+            addStudyMinute();
+            useTrackerStore.setState((s) => ({ xp: s.xp + 1 }));
+            triggerMinuteReward();
+            consecutiveRef.current = 0;
+            setSecondsTowardMinute(0);
+          }
+        } else if (hasPhone) {
+          const penalty = (detectionInterval / 1000) * 2;
+          consecutiveRef.current = Math.max(0, consecutiveRef.current - penalty);
+          setSecondsTowardMinute(Math.floor(consecutiveRef.current));
+        }
+      } catch (err) {
+        console.error("Detection error:", err);
+      }
+    }, detectionInterval);
+  }, [addStudyMinute, triggerMinuteReward, preferences.aiDetectionRate]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 

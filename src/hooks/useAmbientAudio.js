@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useTrackerStore } from "../store/useTrackerStore";
 
 const TRACKS = {
@@ -8,10 +8,45 @@ const TRACKS = {
   synth: { freq: 110, type: "sawtooth" },
 };
 
+// Singleton context to avoid multiple AudioContext errors
+let sharedCtx = null;
+function getSharedCtx() {
+  if (!sharedCtx) {
+    sharedCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return sharedCtx;
+}
+
 export function useAmbientAudio() {
   const track = useTrackerStore((s) => s.preferences.ambientTrack);
+  const soundEnabled = useTrackerStore((s) => s.preferences.soundEnabled);
   const nodesRef = useRef(null);
-  const ctxRef = useRef(null);
+
+  const playThock = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = getSharedCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {
+      // Quiet fail to avoid console noise
+    }
+  }, [soundEnabled]);
 
   useEffect(() => {
     const stop = () => {
@@ -19,15 +54,9 @@ export function useAmbientAudio() {
         try {
           n.stop?.();
           n.disconnect?.();
-        } catch {
-          /* */
-        }
+        } catch { /* */ }
       });
       nodesRef.current = null;
-      if (ctxRef.current?.state !== "closed") {
-        ctxRef.current?.close?.();
-      }
-      ctxRef.current = null;
     };
 
     if (!track || track === "off" || track === "youtube") {
@@ -38,8 +67,12 @@ export function useAmbientAudio() {
     const cfg = TRACKS[track];
     if (!cfg) return stop;
 
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    ctxRef.current = ctx;
+    // Use shared context
+    const ctx = getSharedCtx();
+    if (ctx.state === 'suspended') {
+      // Cannot auto-resume without gesture, but we can setup the nodes
+    }
+    
     const nodes = [];
     const gain = ctx.createGain();
     gain.gain.value = track === "noise" ? 0.04 : 0.03;
@@ -71,4 +104,6 @@ export function useAmbientAudio() {
     nodesRef.current = nodes;
     return stop;
   }, [track]);
+
+  return { playThock };
 }

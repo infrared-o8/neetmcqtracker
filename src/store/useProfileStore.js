@@ -13,6 +13,7 @@ const initialState = {
   lastSyncedAt: 0,
   unlockedItems: [], // Array of { id, type, label, rarity, style }
   pendingCrates: [], // Queue of strings e.g. ['ASH_STASH', 'STAR_BATCH']
+  savedCrates: [], // Array of strings to open later
   totalCratesOpened: 0,
 };
 
@@ -38,6 +39,10 @@ export const useProfileStore = create(
       addPendingCrate: (crateType) => set((state) => ({
         pendingCrates: [...state.pendingCrates, crateType]
       })),
+      saveCrateForLater: () => set((state) => ({
+        savedCrates: [...state.savedCrates, state.pendingCrates[0]],
+        pendingCrates: state.pendingCrates.slice(1)
+      })),
       removeFirstPendingCrate: () => set((state) => ({
         pendingCrates: state.pendingCrates.slice(1)
       })),
@@ -52,6 +57,7 @@ export const useProfileStore = create(
         lastSyncedAt: s.lastSyncedAt,
         unlockedItems: s.unlockedItems,
         pendingCrates: s.pendingCrates,
+        savedCrates: s.savedCrates,
         totalCratesOpened: s.totalCratesOpened,
       }),
     },

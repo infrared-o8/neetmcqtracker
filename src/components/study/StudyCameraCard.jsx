@@ -3,7 +3,7 @@ import { GlowCard } from "../ui/GlowCard";
 import { useFaceStudyContext } from "../../hooks/useFaceStudyContext";
 import { useTrackerStore } from "../../store/useTrackerStore";
 
-export function StudyCameraCard({ id, minimized, onToggleMinimize }) {
+export function StudyCameraCard({ id, minimized, onToggleMinimize, className = "" }) {
   const studyMinutes = useTrackerStore((s) => s.studyMinutes);
   const studyMinutesToday = useTrackerStore((s) => s.studyMinutesToday);
   const showAiSelfView = useTrackerStore((s) => s.preferences.showAiSelfView);
@@ -29,7 +29,7 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize }) {
   return (
     <GlowCard 
       glow={active && faceDetected && !phoneDetected} 
-      className={`bento-camera md:col-span-2 ${minimized ? "md:col-span-1" : ""}`}
+      className={`bento-camera h-full ${className}`}
       id={id}
       minimized={minimized}
       onToggleMinimize={onToggleMinimize}

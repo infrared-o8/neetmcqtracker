@@ -16,6 +16,9 @@ import { FaceStudyProvider } from "./context/FaceStudyProvider";
 import { useThock } from "./hooks/useThock";
 import { FRAMES } from "./data/profileDecor";
 
+import { FaceStudyTopBar } from "./components/study/FaceStudyTopBar";
+import { useMicroRewards } from "./hooks/useMicroRewards";
+
 const MotionDiv = motion.div;
 
 function App() {
@@ -23,15 +26,19 @@ function App() {
   const preferences = useTrackerStore((s) => s.preferences);
   const decor = useProfileStore((s) => s.decor);
   const playClick = useThock();
+  const { unlock: unlockRewards } = useMicroRewards();
 
   useEffect(() => {
     ensurePlayerId();
   }, [ensurePlayerId]);
 
-  // Global click listener for snappy audio feedback
+  // Global click listener for snappy audio feedback and AudioContext activation
   useEffect(() => {
     const handleGlobalClick = (e) => {
-      // Find the closest interactive element (button, link, input[type=button/submit/checkbox/radio], or elements with onclick)
+      // Resume contexts on first gesture
+      unlockRewards();
+
+      // Find interactive elements for "thock" sound
       const target = e.target;
       const interactive = target.closest('button, a, input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"], [role="button"], .cursor-pointer');
       
@@ -40,9 +47,9 @@ function App() {
       }
     };
 
-    window.addEventListener("click", handleGlobalClick, { capture: true });
-    return () => window.removeEventListener("click", handleGlobalClick, { capture: true });
-  }, [playClick]);
+    window.addEventListener("mousedown", handleGlobalClick, { capture: true });
+    return () => window.removeEventListener("mousedown", handleGlobalClick, { capture: true });
+  }, [playClick, unlockRewards]);
 
   const activeEffect = FRAMES[decor.frameId]?.name || 'NONE';
 

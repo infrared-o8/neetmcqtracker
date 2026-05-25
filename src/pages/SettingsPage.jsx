@@ -102,19 +102,22 @@ export function SettingsPage() {
         </div>
         
         <div className="mt-4 space-y-3">
-          <div className="relative">
-            <input
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="http://192.168.1.42:3847 (Leave empty for local)"
-              className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-fuchsia-400/40 transition"
-            />
-            <button
-              onClick={test}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-fuchsia-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-fuchsia-600 transition shadow-lg shadow-fuchsia-500/20"
-            >
-              Test & Sync
-            </button>
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Sync Server URL</p>
+            <div className="relative">
+              <input
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://your-ngrok-link.ngrok-free.app"
+                className="w-full rounded-xl border border-white/10 bg-zinc-900/70 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-fuchsia-400/40 transition"
+              />
+              <button
+                onClick={test}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-fuchsia-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-fuchsia-600 transition shadow-lg shadow-fuchsia-500/20"
+              >
+                Test & Sync
+              </button>
+            </div>
           </div>
           {status && (
             <div className={`rounded-xl border p-3 text-xs font-mono leading-relaxed break-all ${

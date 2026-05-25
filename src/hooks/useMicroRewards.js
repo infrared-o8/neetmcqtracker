@@ -1,18 +1,20 @@
 import { useCallback, useRef } from "react";
 import { useTrackerStore } from "../store/useTrackerStore";
 
-let audioCtx = null;
-
-function getCtx() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// Share context across all reward sounds
+let rewardAudioCtx = null;
+function getRewardCtx() {
+  if (!rewardAudioCtx) {
+    rewardAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  return audioCtx;
+  return rewardAudioCtx;
 }
 
 function playTone({ freq = 440, duration = 0.08, type = "square", gain = 0.08 }) {
   try {
-    const ctx = getCtx();
+    const ctx = getRewardCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = type;
@@ -31,27 +33,24 @@ function playTone({ freq = 440, duration = 0.08, type = "square", gain = 0.08 })
 export function useMicroRewards() {
   const soundEnabled = useTrackerStore((s) => s.preferences.soundEnabled);
   const hapticsEnabled = useTrackerStore((s) => s.preferences.hapticsEnabled);
-  const unlocked = useRef(false);
 
   const unlock = useCallback(() => {
-    if (!unlocked.current) {
-      getCtx()?.resume?.();
-      unlocked.current = true;
+    const ctx = getRewardCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
   }, []);
 
   const playClick = useCallback(() => {
     if (!soundEnabled) return;
-    unlock();
     playTone({ freq: 880, duration: 0.06, type: "square", gain: 0.06 });
-  }, [soundEnabled, unlock]);
+  }, [soundEnabled]);
 
   const playLevelUp = useCallback(() => {
     if (!soundEnabled) return;
-    unlock();
     playTone({ freq: 523, duration: 0.1, type: "sine", gain: 0.1 });
     setTimeout(() => playTone({ freq: 784, duration: 0.12, type: "sine", gain: 0.1 }), 80);
-  }, [soundEnabled, unlock]);
+  }, [soundEnabled]);
 
   const vibrate = useCallback(() => {
     if (hapticsEnabled && navigator.vibrate) {

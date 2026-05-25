@@ -15,11 +15,15 @@ export function GlowCard({
   const { reduceGpuUsage, uiOptimized } = preferences;
   const isGlowEnabled = glow && !reduceGpuUsage;
   const usePerfGlass = perf || reduceGpuUsage || uiOptimized;
+  const isFullHeight = className.includes("h-full");
 
   return (
     <div
-      className={`${usePerfGlass ? "perf-glass" : "genz-glass"} relative overflow-hidden rounded-3xl transition-all duration-500 ${isGlowEnabled ? "glow-border animate-glow-pulse" : ""} ${className} ${minimized ? "min-h-[32px]" : ""}`}
+      className={`${usePerfGlass ? "perf-glass" : "genz-glass"} relative overflow-hidden rounded-3xl transition-[background-color,border-color,box-shadow,filter,opacity] duration-500 ${isGlowEnabled ? "glow-border animate-glow-pulse" : ""} ${className} ${minimized ? "min-h-[32px]" : "flex flex-col"}`}
     >
+      {!uiOptimized && !reduceGpuUsage && (
+        <div className="absolute inset-0 z-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
+      )}
       {/* Minimize Toggle - Absolute Positioned & Centered */}
       <button
         onClick={(e) => {
@@ -49,18 +53,14 @@ export function GlowCard({
             </p>
           </motion.div>
         ) : (
-          <motion.div
+          <div
             key="expanded"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="group"
+            className={`group flex-1 flex flex-col overflow-hidden ${isFullHeight ? "h-full" : ""}`}
           >
-            <div className="p-5">
+            <div className={`p-5 flex-1 flex flex-col ${isFullHeight ? "h-full overflow-y-auto custom-scrollbar" : ""}`}>
               {children}
             </div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

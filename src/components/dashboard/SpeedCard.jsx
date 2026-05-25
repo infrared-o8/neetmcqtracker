@@ -9,7 +9,8 @@ export function SpeedCard({
   bestMomentumChain,
   id,
   minimized,
-  onToggleMinimize
+  onToggleMinimize,
+  className = ""
 }) {
   const isMeetingTarget = velocityTarget > 0 && currentSpeed >= velocityTarget;
   const progress = Math.min((currentSpeed / (velocityTarget || 1)) * 100, 100);
@@ -37,13 +38,13 @@ export function SpeedCard({
   }
 
   return (
-    <div className={`group speed-highlight-wrap ${speedTheme} ${currentSpeed > 0 ? "speed-bump" : ""}`}>
+    <div className={`group speed-highlight-wrap h-full ${speedTheme} ${currentSpeed > 0 ? "speed-bump" : ""} ${className}`}>
       <GlowCard 
         id={id}
         minimized={minimized}
         onToggleMinimize={onToggleMinimize}
         title={`Velocity · ${speedLabel}`}
-        className="relative z-[1]"
+        className="relative z-[1] h-full"
       >
         <div className="flex items-center justify-between mt-2">
           <div className="relative h-20 w-20 shrink-0">

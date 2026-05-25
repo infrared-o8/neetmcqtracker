@@ -21,7 +21,7 @@ export function StatGlowCard({
 
   return (
     <div
-      className={`group stat-highlight-wrap ${outlineClass} ${rankPulse ? "stat-rank-pulse" : ""} ${className}`}
+      className={`group stat-highlight-wrap h-full ${outlineClass} ${rankPulse ? "stat-rank-pulse" : ""} ${className}`}
     >
       <GlowCard 
         glow={goalGlow} 
@@ -32,11 +32,7 @@ export function StatGlowCard({
         onToggleMinimize={onToggleMinimize}
         title={title}
       >
-        {!minimized ? (
-          <TiltCard lowSheen={true}>{children}</TiltCard>
-        ) : (
-          children
-        )}
+        {children}
       </GlowCard>
     </div>
   );

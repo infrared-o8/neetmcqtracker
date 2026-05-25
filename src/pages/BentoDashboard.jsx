@@ -55,18 +55,18 @@ function buildHistory(dailyLogs, dailyPageLogs, days = 14) {
 
 const DEFAULT_LAYOUTS = {
   lg: [
-    { i: "focus", x: 0, y: 0, w: 12, h: 8, static: false },
-    { i: "today", x: 0, y: 8, w: 8, h: 6 },
-    { i: "total", x: 8, y: 8, w: 4, h: 3 },
-    { i: "streak", x: 8, y: 11, w: 4, h: 3 },
-    { i: "rank", x: 0, y: 14, w: 4, h: 6 },
-    { i: "quick", x: 4, y: 14, w: 8, h: 3 },
-    { i: "goal", x: 4, y: 17, w: 4, h: 3 },
-    { i: "speed", x: 8, y: 17, w: 4, h: 3 },
-    { i: "camera", x: 0, y: 20, w: 8, h: 10 },
-    { i: "heatmap", x: 8, y: 20, w: 4, h: 10 },
-    { i: "ladder", x: 0, y: 30, w: 12, h: 6 },
-    { i: "chart", x: 0, y: 36, w: 12, h: 8 },
+    { i: "focus", x: 0, y: 0, w: 12, h: 10, static: false },
+    { i: "today", x: 0, y: 10, w: 8, h: 7 },
+    { i: "total", x: 8, y: 10, w: 4, h: 4 },
+    { i: "streak", x: 8, y: 14, w: 4, h: 3 },
+    { i: "rank", x: 0, y: 17, w: 4, h: 6 },
+    { i: "quick", x: 4, y: 17, w: 8, h: 3 },
+    { i: "goal", x: 4, y: 20, w: 4, h: 3 },
+    { i: "speed", x: 8, y: 20, w: 4, h: 3 },
+    { i: "camera", x: 0, y: 23, w: 8, h: 15 },
+    { i: "heatmap", x: 8, y: 23, w: 4, h: 15 },
+    { i: "ladder", x: 0, y: 38, w: 12, h: 8 },
+    { i: "chart", x: 0, y: 46, w: 12, h: 10 },
   ],
 };
 
@@ -119,16 +119,15 @@ export function BentoDashboard() {
   const [prevLevel, setPrevLevel] = useState(1);
   const pendingCrates = useProfileStore((s) => s.pendingCrates);
   const removeFirstPendingCrate = useProfileStore((s) => s.removeFirstPendingCrate);
-  const addPendingCrate = useProfileStore((s) => s.addPendingCrate);
+  const saveCrateForLater = useProfileStore((s) => s.saveCrateForLater);
   const [prevAp, setPrevAp] = useState(activityTotal);
-  const [deferredCratesCount, setDeferredCratesCount] = useState(0);
 
   const today = getTodayKey();
   const todaySolved = dailyLogs[today] ?? 0;
   const todayPages = dailyPageLogs[today] ?? 0;
   const levelData = getLevelFromXp(xp);
   const rankProgress = getRankProgress(activityTotal);
-  const isPages = trackingMode === "pages";
+  const isPages = trackingMode === "mcq" ? false : true; // Fixed trackingMode check
   const todayCount = isPages ? todayPages : todaySolved;
   const dailyTarget = isPages ? dailyPageGoal : dailyGoal;
   const goalMet = isPages ? pageGoalCompletedToday : goalCompletedToday;
@@ -193,10 +192,10 @@ export function BentoDashboard() {
   useEffect(() => {
     const drop = checkDropEligibility(prevAp, activityTotal, preferences.devModeEnabled);
     if (drop) {
-      addPendingCrate(drop);
+      useProfileStore.getState().addPendingCrate(drop);
     }
     setPrevAp(activityTotal);
-  }, [activityTotal, prevAp, preferences.devModeEnabled, addPendingCrate]);
+  }, [activityTotal, prevAp, preferences.devModeEnabled]);
 
   const onLayoutChange = (currentLayout, allLayouts) => {
     // Only save if it's not a temporary change during minimization
@@ -226,15 +225,18 @@ export function BentoDashboard() {
   };
 
   return (
-    <div className="relative px-5 pb-24 pt-6">
-      <AnimatePresence>
-        {pendingCrates.length > deferredCratesCount && (
+    <div className="relative px-5 pb-24 pt-6 select-none">
+      <AnimatePresence mode="wait">
+        {pendingCrates.length > 0 && (
           <CaseUnlockView 
-            crateType={pendingCrates[deferredCratesCount]} 
+            key={pendingCrates[0] + pendingCrates.length}
+            crateType={pendingCrates[0]} 
             onDismiss={() => {
               removeFirstPendingCrate();
             }} 
-            onSave={() => setDeferredCratesCount(v => v + 1)}
+            onSave={() => {
+              saveCrateForLater();
+            }}
           />
         )}
         {(goalMet || rankPulse) && (
@@ -286,172 +288,188 @@ export function BentoDashboard() {
           layouts={dashboardLayout || DEFAULT_LAYOUTS}
           breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
           cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-          rowHeight={30}
+          rowHeight={40}
           onLayoutChange={onLayoutChange}
           draggableHandle=".drag-handle"
+          resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
           margin={[16, 16]}
+          useCSSTransforms={true}
         >
-          <div key="focus" className="overflow-hidden">
-            <div className="drag-handle absolute top-2 right-12 z-20 cursor-move p-2 text-white/20 hover:text-white/60">
-              :::
+          <div key="focus">
+            <div className="h-full w-full overflow-hidden rounded-3xl">
+              <div className="drag-handle absolute top-2 right-12 z-20 cursor-move p-2 text-white/20 hover:text-white/60">
+                :::
+              </div>
+              <FocusEngine />
             </div>
-            <FocusEngine />
           </div>
 
           <div key="today">
-            <StatGlowCard
-              outline="cyan"
-              rankPulse={rankPulse}
-              goalGlow={goalMet}
-              perf={true}
-              className="group h-full"
-              id="today"
-              minimized={isMinimized("today")}
-              onToggleMinimize={handleToggleMinimize}
-              title={isPages ? "Today · Pages" : "Today · MCQs"}
-            >
-              <div className="drag-handle cursor-move">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
-                  Today · {isPages ? "Pages" : "MCQs"}
-                </p>
-                <p className="mt-2 text-5xl font-semibold text-white">
-                  <RollingNumber value={todayCount} />
-                </p>
-                {isCombo && (
-                  <span className="combo-badge mt-2 inline-block">Combo ×{Math.min(momentumChain, 99)}</span>
-                )}
-              </div>
-            </StatGlowCard>
+            <div className="h-full w-full">
+              <StatGlowCard
+                outline="cyan"
+                rankPulse={rankPulse}
+                goalGlow={goalMet}
+                perf={true}
+                className="group h-full"
+                id="today"
+                minimized={isMinimized("today")}
+                onToggleMinimize={handleToggleMinimize}
+                title={isPages ? "Today · Pages" : "Today · MCQs"}
+              >
+                <div className="drag-handle cursor-move h-full w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
+                    Today · {isPages ? "Pages" : "MCQs"}
+                  </p>
+                  <p className="mt-2 text-5xl font-semibold text-white">
+                    <RollingNumber value={todayCount} />
+                  </p>
+                  {isCombo && (
+                    <span className="combo-badge mt-2 inline-block">Combo ×{Math.min(momentumChain, 99)}</span>
+                  )}
+                </div>
+              </StatGlowCard>
+            </div>
           </div>
 
           <div key="total">
-            <StatGlowCard 
-              outline="violet" 
-              rankPulse={rankPulse} 
-              perf={true} 
-              className="group h-full"
-              id="total"
-              minimized={isMinimized("total")}
-              onToggleMinimize={handleToggleMinimize}
-              title="Activity total"
-            >
-              <div className="drag-handle cursor-move">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-violet-200/90">
-                  Activity total
-                </p>
-                <p className="mt-2 text-3xl font-semibold text-white">
-                  <RollingNumber value={activityTotal} />
-                </p>
-                <p className="mt-1 text-xs text-zinc-500 truncate">
-                  {totalSolved} MCQs · {totalPagesRead} pages
-                </p>
-              </div>
-            </StatGlowCard>
+            <div className="h-full w-full">
+              <StatGlowCard 
+                outline="violet" 
+                rankPulse={rankPulse} 
+                perf={true} 
+                className="group h-full"
+                id="total"
+                minimized={isMinimized("total")}
+                onToggleMinimize={handleToggleMinimize}
+                title="Activity total"
+              >
+                <div className="drag-handle cursor-move h-full w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-violet-200/90">
+                    Activity total
+                  </p>
+                  <p className="mt-2 text-3xl font-semibold text-white">
+                    <RollingNumber value={activityTotal} />
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500 truncate">
+                    {totalSolved} MCQs · {totalPagesRead} pages
+                  </p>
+                </div>
+              </StatGlowCard>
+            </div>
           </div>
 
           <div key="streak">
-            <GlowCard 
-              id="streak"
-              className="group h-full"
-              minimized={isMinimized("streak")}
-              onToggleMinimize={handleToggleMinimize}
-              title="Streak"
-              perf={true}
-            >
-              <div className="drag-handle cursor-move">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Streak</p>
-                <p className="mt-2 text-4xl font-semibold text-orange-300">
-                  <RollingNumber value={streak} />d
-                </p>
-                <p className="text-xs text-zinc-500">Best: {bestStreak}d</p>
-              </div>
-            </GlowCard>
+            <div className="h-full w-full">
+              <GlowCard 
+                id="streak"
+                className="group h-full"
+                minimized={isMinimized("streak")}
+                onToggleMinimize={handleToggleMinimize}
+                title="Streak"
+                perf={true}
+              >
+                <div className="drag-handle cursor-move h-full w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Streak</p>
+                  <p className="mt-2 text-4xl font-semibold text-orange-300">
+                    <RollingNumber value={streak} />d
+                  </p>
+                  <p className="text-xs text-zinc-500">Best: {bestStreak}d</p>
+                </div>
+              </GlowCard>
+            </div>
           </div>
 
           <div key="rank">
-            <GlowCard
-              id="rank"
-              minimized={isMinimized("rank")}
-              onToggleMinimize={handleToggleMinimize}
-              title="Rank"
-              className={`group h-full transition-all duration-500 ${
-                rankPulse ? "rank-card-spectacle glow-border animate-glow-pulse" : ""
-              }`}
-            >
-              <div className="drag-handle cursor-move">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Rank</p>
-                <motion.p
-                  key={rankProgress.currentRank.label}
-                  className="mt-2 text-xl font-semibold chroma-text"
-                  animate={rankPulse ? { scale: [1, 1.06, 1] } : {}}
-                  transition={{ duration: 0.6, repeat: rankPulse ? Infinity : 0, repeatDelay: 0.3 }}
-                >
-                  {rankProgress.currentRank.label}
-                </motion.p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
-                  <MotionDiv
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-400"
-                    animate={{ width: `${rankProgress.progressPercent}%` }}
-                  />
+            <div className="h-full w-full">
+              <GlowCard
+                id="rank"
+                minimized={isMinimized("rank")}
+                onToggleMinimize={handleToggleMinimize}
+                title="Rank"
+                className={`group h-full transition-all duration-500 ${
+                  rankPulse ? "rank-card-spectacle glow-border animate-glow-pulse" : ""
+                }`}
+              >
+                <div className="drag-handle cursor-move h-full w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Rank</p>
+                  <motion.p
+                    key={rankProgress.currentRank.label}
+                    className="mt-2 text-xl font-semibold chroma-text"
+                    animate={rankPulse ? { scale: [1, 1.06, 1] } : {}}
+                    transition={{ duration: 0.6, repeat: rankPulse ? Infinity : 0, repeatDelay: 0.3 }}
+                  >
+                    {rankProgress.currentRank.label}
+                  </motion.p>
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
+                    <MotionDiv
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-400"
+                      animate={{ width: `${rankProgress.progressPercent}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
-            </GlowCard>
+              </GlowCard>
+            </div>
           </div>
 
           <div key="quick">
-            <GlowCard 
-              glow={goalMet} 
-              id="quick"
-              minimized={isMinimized("quick")}
-              onToggleMinimize={handleToggleMinimize}
-              title="Quick add"
-              className="group h-full"
-            >
-              <div className="drag-handle cursor-move mb-2">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Quick add</p>
-              </div>
-              <QuickAddControls
-                onAdd={handleAdd}
-                label={isPages ? "Page" : "MCQ"}
-                showCombo={isCombo}
-                comboCount={momentumChain}
-              />
-            </GlowCard>
+            <div className="h-full w-full">
+              <GlowCard 
+                glow={goalMet} 
+                id="quick"
+                minimized={isMinimized("quick")}
+                onToggleMinimize={handleToggleMinimize}
+                title="Quick add"
+                className="group h-full"
+              >
+                <div className="drag-handle cursor-move mb-2 w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Quick add</p>
+                </div>
+                <QuickAddControls
+                  onAdd={handleAdd}
+                  label={isPages ? "Page" : "MCQ"}
+                  showCombo={isCombo}
+                  comboCount={momentumChain}
+                />
+              </GlowCard>
+            </div>
           </div>
 
           <div key="goal">
-            <GlowCard 
-              glow={goalMet} 
-              id="goal"
-              minimized={isMinimized("goal")}
-              onToggleMinimize={handleToggleMinimize}
-              title="Daily goal"
-              className="group h-full"
-            >
-              <div className="drag-handle cursor-move mb-2">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Daily goal</p>
-              </div>
-              <div className="mt-3 flex items-center gap-4">
-                <GoalRing value={todayCount} max={dailyTarget} />
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    min={1}
-                    value={isPages ? dailyPageGoal : dailyGoal}
-                    onChange={(e) =>
-                      isPages
-                        ? setDailyPageGoal(Number(e.target.value || 0))
-                        : setDailyGoal(Number(e.target.value || 0))
-                    }
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-white text-xs"
-                  />
+            <div className="h-full w-full">
+              <GlowCard 
+                glow={goalMet} 
+                id="goal"
+                minimized={isMinimized("goal")}
+                onToggleMinimize={handleToggleMinimize}
+                title="Daily goal"
+                className="group h-full"
+              >
+                <div className="drag-handle cursor-move mb-2 w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Daily goal</p>
                 </div>
-              </div>
-            </GlowCard>
+                <div className="mt-3 flex items-center gap-4">
+                  <GoalRing value={todayCount} max={dailyTarget} />
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      min={1}
+                      value={isPages ? dailyPageGoal : dailyGoal}
+                      onChange={(e) =>
+                        isPages
+                          ? setDailyPageGoal(Number(e.target.value || 0))
+                          : setDailyGoal(Number(e.target.value || 0))
+                      }
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-zinc-900/70 px-3 py-2 text-white text-xs"
+                    />
+                  </div>
+                </div>
+              </GlowCard>
+            </div>
           </div>
 
           <div key="speed">
-            <div className="drag-handle h-full">
+            <div className="h-full w-full">
               <SpeedCard
                 currentSpeed={currentSpeed}
                 speedLabel={speedLabel}
@@ -459,7 +477,7 @@ export function BentoDashboard() {
                 setVelocityTarget={setVelocityTarget}
                 bestMomentumChain={bestMomentumChain}
                 id="speed"
-                className="group h-full"
+                className="group h-full drag-handle cursor-move"
                 minimized={isMinimized("speed")}
                 onToggleMinimize={handleToggleMinimize}
               />
@@ -467,9 +485,10 @@ export function BentoDashboard() {
           </div>
 
           <div key="camera">
-            <div className="drag-handle h-full">
+            <div className="h-full w-full">
               <StudyCameraCard 
                 id="camera"
+                className="drag-handle cursor-move"
                 minimized={isMinimized("camera")}
                 onToggleMinimize={handleToggleMinimize}
               />
@@ -477,52 +496,58 @@ export function BentoDashboard() {
           </div>
 
           <div key="heatmap">
-            <GlowCard 
-              id="heatmap"
-              minimized={isMinimized("heatmap")}
-              onToggleMinimize={handleToggleMinimize}
-              title="Study density"
-              className="group h-full overflow-hidden"
-            >
-              <div className="drag-handle cursor-move mb-2">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Study density</p>
-              </div>
-              <div className="scale-90 origin-top-left">
-                <ContributionGrid dailyLogs={dailyLogs} dailyPageLogs={dailyPageLogs} weeks={26} />
-              </div>
-            </GlowCard>
+            <div className="h-full w-full">
+              <GlowCard 
+                id="heatmap"
+                minimized={isMinimized("heatmap")}
+                onToggleMinimize={handleToggleMinimize}
+                title="Study density"
+                className="group h-full overflow-hidden"
+              >
+                <div className="drag-handle cursor-move mb-2 w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Study density</p>
+                </div>
+                <div className="scale-90 origin-top-left">
+                  <ContributionGrid dailyLogs={dailyLogs} dailyPageLogs={dailyPageLogs} weeks={26} />
+                </div>
+              </GlowCard>
+            </div>
           </div>
 
           <div key="ladder">
-            <GlowCard
-              id="ladder"
-              minimized={isMinimized("ladder")}
-              onToggleMinimize={handleToggleMinimize}
-              title="Rank ladder"
-              className="group h-full"
-            >
-              <div className="drag-handle cursor-move mb-2">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Rank ladder</p>
-              </div>
-              <RankLadder activityTotal={activityTotal} />
-            </GlowCard>
+            <div className="h-full w-full">
+              <GlowCard
+                id="ladder"
+                minimized={isMinimized("ladder")}
+                onToggleMinimize={handleToggleMinimize}
+                title="Rank ladder"
+                className="group h-full"
+              >
+                <div className="drag-handle cursor-move mb-2 w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Rank ladder</p>
+                </div>
+                <RankLadder activityTotal={activityTotal} />
+              </GlowCard>
+            </div>
           </div>
 
           <div key="chart">
-            <GlowCard 
-              id="chart"
-              minimized={isMinimized("chart")}
-              onToggleMinimize={handleToggleMinimize}
-              title="14-day history"
-              className="group h-full"
-            >
-              <div className="drag-handle cursor-move mb-2">
-                <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">14-day history</p>
-              </div>
-              <div className="h-[200px]">
-                <HistoryChart data={history} />
-              </div>
-            </GlowCard>
+            <div className="h-full w-full">
+              <GlowCard 
+                id="chart"
+                minimized={isMinimized("chart")}
+                onToggleMinimize={handleToggleMinimize}
+                title="14-day history"
+                className="group h-full"
+              >
+                <div className="drag-handle cursor-move mb-2 w-full">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">14-day history</p>
+                </div>
+                <div className="h-[200px]">
+                  <HistoryChart data={history} />
+                </div>
+              </GlowCard>
+            </div>
           </div>
         </ResponsiveGridLayout>
       </MotionDiv>

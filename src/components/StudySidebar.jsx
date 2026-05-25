@@ -56,7 +56,7 @@ export function StudySidebar() {
   };
 
   return (
-    <aside className="genz-glass flex w-[260px] shrink-0 flex-col border-r border-white/5 p-4 md:w-[280px]">
+    <aside className={`${preferences.uiOptimized ? 'bg-zinc-950' : 'genz-glass'} flex w-[260px] shrink-0 flex-col border-r border-white/5 p-4 md:w-[280px]`}>
       <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">NEET Tracker</p>
       <nav className="mt-4 flex flex-col gap-1">
         <NavLink to="/" end className={navClass}>
