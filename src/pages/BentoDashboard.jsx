@@ -18,6 +18,7 @@ import { useRankUpgradePulse } from "../hooks/useRankUpgradePulse";
 import { RollingNumber } from "../components/ui/RollingNumber";
 import { MilestoneReveal } from "../components/MilestoneReveal";
 import { RankUnlockSpectacle } from "../components/dashboard/RankUnlockSpectacle";
+import { CaseUnlockView } from "../components/dashboard/CaseUnlockView";
 import { SpeedCard } from "../components/dashboard/SpeedCard";
 import { FaceStudyTopBar } from "../components/study/FaceStudyTopBar";
 import { StudyCameraCard } from "../components/study/StudyCameraCard";
@@ -307,7 +308,7 @@ export function BentoDashboard() {
           draggableHandle=".drag-handle"
           resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
           margin={[16, 16]}
-          useCSSTransforms={true}
+          useCSSTransforms={false}
         >
           <div key="focus">
             <div className="h-full w-full overflow-hidden rounded-3xl">

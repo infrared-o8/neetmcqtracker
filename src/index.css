@@ -759,9 +759,11 @@ body {
 
 .react-grid-item {
   transition: none !important;
+  will-change: auto !important;
 }
 
-.react-grid-placeholder {
+.react-grid-item.react-grid-placeholder {
+  transition: none !important;
   background: rgba(34, 211, 238, 0.05) !important;
   border-radius: 1.5rem !important;
   opacity: 0.5 !important;
