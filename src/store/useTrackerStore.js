@@ -26,6 +26,8 @@ const DEFAULT_PREFERENCES = {
   aiDetectionRate: "normal", // 'normal' (1s), 'power-save' (3s), 'ultra-low' (5s)
   enableParticleEngine: true,
   reduceGpuUsage: false, // Disables complex radial gradients and filters
+  pomodoroFocusMinutes: 25,
+  pomodoroBreakMinutes: 5,
 };
 
 export const initialState = {
@@ -65,6 +67,7 @@ export const initialState = {
     startSolved: 0,
   },
   lastSessionSummary: null,
+  pomodoroHistory: [], // [{ id, type: 'focus'|'break', duration, timestamp }]
 };
 
 const BREAK_MS = 10 * 60 * 1000;
@@ -326,6 +329,13 @@ export const useTrackerStore = create(
           window.dispatchEvent(new CustomEvent("neet:study-minute"));
         }
       },
+      addPomodoroSession: (session) =>
+        set((state) => ({
+          pomodoroHistory: [
+            { ...session, id: Date.now(), timestamp: Date.now() },
+            ...state.pomodoroHistory,
+          ].slice(0, 50), // Keep last 50
+        })),
       clearAll: () => set({ ...initialState, preferences: get().preferences }),
       getSnapshot: () => {
         const s = get();
@@ -410,6 +420,7 @@ export const useTrackerStore = create(
         minimizedWidgets: state.minimizedWidgets,
         session: state.session,
         lastSessionSummary: state.lastSessionSummary,
+        pomodoroHistory: state.pomodoroHistory,
       }),
     },
   ),

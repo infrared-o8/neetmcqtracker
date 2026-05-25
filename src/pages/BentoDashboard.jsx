@@ -31,7 +31,7 @@ import {
   getTodayKey,
 } from "../utils/gamification";
 
-import { CaseUnlockView } from "../components/dashboard/CaseUnlockView";
+import { FocusEngine } from "../components/FocusEngine";
 import { checkDropEligibility } from "../utils/lootEngine";
 
 const MotionDiv = motion.div;
@@ -450,54 +450,9 @@ export function BentoDashboard() {
             </GlowCard>
           </div>
 
-          <GlowCard 
-            id="session"
-            minimized={isMinimized("session")}
-            onToggleMinimize={toggleMinimized}
-            title="Session mode"
-            className={`bento-session group ${isMinimized("session") ? "h-fit" : ""}`}
-          >
-            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Session mode</p>
-            {!session.active ? (
-              <div className="mt-2 flex gap-2">
-                {[25, 45, 60].map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => startSession(m)}
-                    className="rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-100"
-                  >
-                    {m}m
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-zinc-300">
-                {sessionMinutesLeft}m left · {sessionSolved} MCQs
-                <button
-                  type="button"
-                  onClick={endSession}
-                  className="ml-2 text-rose-300 underline"
-                >
-                  End
-                </button>
-              </p>
-            )}
-            {lastSessionSummary && (
-              <p className="mt-2 text-xs text-emerald-300">
-                Last: {lastSessionSummary.solved} in {lastSessionSummary.elapsedMinutes}m
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm("Reset all progress?")) clearAll();
-              }}
-              className="mt-4 w-full rounded-xl border border-rose-400/25 py-2 text-xs text-rose-200"
-            >
-              Reset progress
-            </button>
-          </GlowCard>
+          <div className={`bento-session ${isMinimized("session") ? "h-fit" : ""}`}>
+            <FocusEngine />
+          </div>
 
           <GlowCard 
             id="chart"
