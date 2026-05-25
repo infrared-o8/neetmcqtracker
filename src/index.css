@@ -757,6 +757,25 @@ body {
   animation: breathe-break 4s ease-in-out infinite;
 }
 
+.react-grid-placeholder {
+  background: rgba(34, 211, 238, 0.05) !important;
+  border-radius: 1.5rem !important;
+  opacity: 0.5 !important;
+}
+
+.react-resizable-handle {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.group:hover .react-resizable-handle {
+  opacity: 0.5;
+}
+
+.drag-handle {
+  touch-action: none;
+}
+
 .library-bg .mesh-bg {
   background-image:
     radial-gradient(ellipse 80% 60% at 15% 10%, rgba(205, 133, 63, 0.15), transparent 50%),

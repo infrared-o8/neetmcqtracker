@@ -9,7 +9,7 @@ export function FaceStudyTopBar() {
   if (!active) return null;
 
   return (
-    <div className="sticky top-0 z-30 -mx-5 mb-4 border-b border-white/10 bg-zinc-950/90 px-5 py-2 backdrop-blur-md">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-zinc-950/90 px-5 py-3 backdrop-blur-md">
       <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
         <span>Face study timer</span>
         <span className={faceDetected ? "text-emerald-300" : "text-zinc-500"}>

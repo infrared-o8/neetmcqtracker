@@ -68,6 +68,7 @@ export const initialState = {
   },
   lastSessionSummary: null,
   pomodoroHistory: [], // [{ id, type: 'focus'|'break', duration, timestamp }]
+  dashboardLayout: null, // Stores react-grid-layout configuration
 };
 
 const BREAK_MS = 10 * 60 * 1000;
@@ -336,6 +337,8 @@ export const useTrackerStore = create(
             ...state.pomodoroHistory,
           ].slice(0, 50), // Keep last 50
         })),
+      setDashboardLayout: (dashboardLayout) => set({ dashboardLayout }),
+      resetDashboardLayout: () => set({ dashboardLayout: null }),
       clearAll: () => set({ ...initialState, preferences: get().preferences }),
       getSnapshot: () => {
         const s = get();
@@ -421,6 +424,7 @@ export const useTrackerStore = create(
         session: state.session,
         lastSessionSummary: state.lastSessionSummary,
         pomodoroHistory: state.pomodoroHistory,
+        dashboardLayout: state.dashboardLayout,
       }),
     },
   ),
