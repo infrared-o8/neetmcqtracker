@@ -5,58 +5,62 @@ import { useAmbientAudio } from "../../hooks/useAmbientAudio";
 export function RollingNumber({ value, className = "" }) {
   const [display, setDisplay] = useState(value);
   const { playThock } = useAmbientAudio();
-  const prevValueRef = useRef(value);
+  
+  // Track the actual current value being shown to the user
+  const currentInternalValueRef = useRef(value);
+  const targetValueRef = useRef(value);
+  const requestRef = useRef(null);
   const lastSoundTimeRef = useRef(0);
 
   useEffect(() => {
-    if (value === prevValueRef.current) return;
+    // If the target hasn't changed, do nothing
+    if (value === targetValueRef.current) return;
     
-    const target = value;
-    const start = prevValueRef.current;
-    const diff = target - start;
+    targetValueRef.current = value;
+    const startValue = currentInternalValueRef.current;
+    const diff = value - startValue;
     
-    if (diff <= 0) {
-      setDisplay(target);
-      prevValueRef.current = target;
-      return;
-    }
+    if (diff === 0) return;
 
-    let current = start;
-    const totalDuration = 1500; // Cap total animation at 1.5s
+    const totalDuration = 1000; // Snappier 1s duration
     const startTime = performance.now();
 
-    const tick = () => {
-      const now = performance.now();
-      const elapsed = now - startTime;
+    const animate = (time) => {
+      const elapsed = time - startTime;
       const progress = Math.min(elapsed / totalDuration, 1);
       
       // Easing function for smooth acceleration/deceleration
       const easeOutExpo = 1 - Math.pow(2, -10 * progress);
       
-      // Calculate next value based on easing
-      const nextValue = Math.floor(start + (diff * easeOutExpo));
+      // Calculate next value based on easing from current position
+      // Using Math.round to avoid the 'floor lag' for small increments (+1, +2)
+      const nextValue = Math.round(startValue + (diff * easeOutExpo));
       
-      if (nextValue > current) {
-        current = nextValue;
-        setDisplay(current);
+      if (nextValue !== currentInternalValueRef.current) {
+        currentInternalValueRef.current = nextValue;
+        setDisplay(nextValue);
 
         // Throttle sound to prevent audio distortion at high speeds
-        // Max 15 sounds per second (approx 66ms apart)
-        if (now - lastSoundTimeRef.current > 66) {
+        if (time - lastSoundTimeRef.current > 70) {
           playThock();
-          lastSoundTimeRef.current = now;
+          lastSoundTimeRef.current = time;
         }
       }
 
-      if (progress < 1 && current < target) {
-        requestAnimationFrame(tick);
+      if (progress < 1) {
+        requestRef.current = requestAnimationFrame(animate);
       } else {
-        setDisplay(target);
-        prevValueRef.current = target;
+        currentInternalValueRef.current = value;
+        setDisplay(value);
       }
     };
 
-    requestAnimationFrame(tick);
+    if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    requestRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
   }, [value, playThock]);
 
   return (

@@ -35,13 +35,22 @@ export function FaceStudyProvider({ children }) {
     setTimeout(() => setMinuteBurst(null), 2200);
   }, []);
 
+  const isInitializingRef = useRef(false);
+
   const stopCamera = useCallback(() => {
+    // Kill the heartbeat
     if (tickRef.current) {
       clearInterval(tickRef.current);
       tickRef.current = null;
     }
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+
+    // Release camera hardware
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+
+    // Reset UI state
     if (videoRef.current) videoRef.current.srcObject = null;
     setActive(false);
     setFaceDetected(false);
@@ -49,59 +58,66 @@ export function FaceStudyProvider({ children }) {
     setConfidence(0);
     consecutiveRef.current = 0;
     setSecondsTowardMinute(0);
+    isInitializingRef.current = false;
   }, []);
 
   const startCamera = useCallback(async () => {
-    // If already active and stream exists, just re-attach
-    if (streamRef.current && videoRef.current) {
-      if (videoRef.current.srcObject !== streamRef.current) {
-        videoRef.current.srcObject = streamRef.current;
-      }
-      setActive(true);
-      return;
-    }
-
+    // Guard: Prevent double-loading or re-entering while already active
+    if (active || isInitializingRef.current) return;
+    
+    isInitializingRef.current = true;
     setError("");
     setLoading(true);
 
-    // Run resource-heavy model loading and stream acquisition asynchronously to prevent UI freeze
-    setTimeout(async () => {
-      try {
-        if (!faceModelRef.current) {
-          faceModelRef.current = await blazeface.load();
-        }
-        if (!objectModelRef.current) {
-          objectModelRef.current = await cocoSsd.load();
-        }
+    try {
+      // Step 1: Initialize Models (Lazy-load & Non-blocking)
+      // This is the CPU-intensive part. We use a micro-task delay to keep UI responsive.
+      await new Promise(r => setTimeout(r, 50));
+      
+      if (!faceModelRef.current) {
+        faceModelRef.current = await blazeface.load();
+      }
+      if (!objectModelRef.current) {
+        objectModelRef.current = await cocoSsd.load();
+      }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false,
-        });
-        
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          // Use onloadedmetadata to ensure video is ready without blocking the main loop
+      // Step 2: Request Camera Stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      
+      // Step 3: Handle Component Unmount during async load
+      if (!isInitializingRef.current) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        // Wait for video metadata to be ready
+        await new Promise((resolve) => {
           videoRef.current.onloadedmetadata = () => {
             videoRef.current.play().catch(console.error);
-            setActive(true);
-            setLoading(false);
-            startDetectionLoop();
+            resolve();
           };
-        } else {
-          setActive(true);
-          setLoading(false);
-          startDetectionLoop();
-        }
-      } catch (e) {
-        console.error("Camera start error:", e);
-        setError(e.message || "Camera access denied or unavailable.");
-        stopCamera();
-        setLoading(false);
+        });
       }
-    }, 10);
-  }, [stopCamera, preferences.aiDetectionRate]);
+
+      setActive(true);
+      setLoading(false);
+      isInitializingRef.current = false;
+      startDetectionLoop();
+
+    } catch (e) {
+      console.error("AI Context Init Failure:", e);
+      setError(e.message || "Hardware access denied.");
+      stopCamera();
+      setLoading(false);
+      isInitializingRef.current = false;
+    }
+  }, [active, stopCamera, preferences.aiDetectionRate]);
 
   const startDetectionLoop = useCallback(() => {
     if (tickRef.current) clearInterval(tickRef.current);
