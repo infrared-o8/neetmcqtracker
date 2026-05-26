@@ -16,6 +16,10 @@ const userSchema = new mongoose.Schema({
   rankLabel: { type: String, default: "Beginner" },
   studyMinutes: { type: Number, default: 0 },
   activityTotal: { type: Number, default: 0 },
+  unlockedItems: { type: Array, default: [] },
+  pendingCrates: { type: Array, default: [] },
+  savedCrates: { type: Array, default: [] },
+  totalCratesOpened: { type: Number, default: 0 },
   updatedAt: { type: Date, default: Date.now }
 });
 
@@ -122,6 +126,18 @@ export async function updateStats(playerId, stats) {
     if (stats.bestStreak !== undefined) user.bestStreak = safeNum(stats.bestStreak);
     if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel || "Aspirant";
 
+    // Reward/Profile fields: Take latest or more advanced
+    if (stats.unlockedItems && Array.isArray(stats.unlockedItems)) {
+      if (stats.unlockedItems.length > (user.unlockedItems || []).length) {
+        user.unlockedItems = stats.unlockedItems;
+      }
+    }
+    if (stats.pendingCrates !== undefined) user.pendingCrates = stats.pendingCrates;
+    if (stats.savedCrates !== undefined) user.savedCrates = stats.savedCrates;
+    if (stats.totalCratesOpened !== undefined) {
+      user.totalCratesOpened = Math.max(safeNum(user.totalCratesOpened), safeNum(stats.totalCratesOpened));
+    }
+
     // Recalculate activityTotal
     user.activityTotal = user.totalSolved + user.totalPagesRead + (user.studyMinutes * 0.5);
 
@@ -171,6 +187,10 @@ export async function getPlayer(playerId) {
       bestStreak: user.bestStreak || 0,
       rankLabel: user.rankLabel || "Beginner",
       studyMinutes: user.studyMinutes || 0,
+      unlockedItems: user.unlockedItems || [],
+      pendingCrates: user.pendingCrates || [],
+      savedCrates: user.savedCrates || [],
+      totalCratesOpened: user.totalCratesOpened || 0,
       updatedAt: user.updatedAt
     };
   } catch (e) {

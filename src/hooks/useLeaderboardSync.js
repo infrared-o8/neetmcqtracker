@@ -86,7 +86,14 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   const pushStats = useCallback(async () => {
     if (!activePlayerId || Date.now() < cooldownRef.current) return false;
     try {
-      const { displayName: name, decor: d } = useProfileStore.getState();
+      const { 
+        displayName: name, 
+        decor: d,
+        unlockedItems,
+        pendingCrates,
+        savedCrates,
+        totalCratesOpened
+      } = useProfileStore.getState();
       const stats = getSnapshot(); 
       const token = clerkUserId ? await getToken() : null;
 
@@ -109,6 +116,10 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
           dailyPageLogs: stats.dailyPageLogs || {},
           displayName: name,
           decor: d,
+          unlockedItems,
+          pendingCrates,
+          savedCrates,
+          totalCratesOpened,
         }),
       });
 
@@ -147,6 +158,11 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     if (!health.ok) return { ok: false, reason: isRateLimitedRef.current ? "rate-limited" : "offline" };
 
     try {
+      // 0. Identity Alignment: Ensure local playerId matches Clerk ID
+      if (clerkUserId && useProfileStore.getState().playerId !== clerkUserId) {
+        useProfileStore.setState({ playerId: clerkUserId });
+      }
+
       // 1. Initial Handshake: Register and check existing cloud state
       await register();
       
@@ -154,12 +170,18 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       if (res.ok) {
         const cloudData = await res.json();
         const localStats = getSnapshot();
+        const localProfile = useProfileStore.getState();
 
-        // 2. Authoritative Sync: Use Cloud values if they represent more total effort
+        // 2. Authoritative Sync: Align local state with MongoDB Cloud
+        // We use Cloud values if they represent more total effort OR if local is effectively "fresh"
         const cloudActivity = cloudData.activityTotal || 0;
         const localActivity = localStats.activityTotal || 0;
+        
+        // If user is on a new device/browser (localActivity is 0 or very low) 
+        // OR if cloud has more progress, we pull down.
+        const shouldRestore = cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0);
 
-        if (cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0)) {
+        if (shouldRestore) {
           console.log("[Sync] Restoration triggered. Aligning local state with MongoDB Cloud.");
           
           const currentStore = useTrackerStore.getState();
@@ -183,10 +205,22 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
             dailyLogs: mergedDailyLogs,
             dailyPageLogs: mergedDailyPageLogs,
           });
+
+          // Also update profile store with cloud identity
+          useProfileStore.setState({
+            displayName: cloudData.displayName || localProfile.displayName,
+            decor: { ...localProfile.decor, ...(cloudData.decor || {}) },
+            unlockedItems: cloudData.unlockedItems && cloudData.unlockedItems.length > localProfile.unlockedItems.length 
+              ? cloudData.unlockedItems 
+              : localProfile.unlockedItems,
+            pendingCrates: cloudData.pendingCrates || localProfile.pendingCrates,
+            savedCrates: cloudData.savedCrates || localProfile.savedCrates,
+            totalCratesOpened: Math.max(localProfile.totalCratesOpened, cloudData.totalCratesOpened || 0),
+          });
         }
       }
       
-      // 3. Push local changes
+      // 3. Push local changes (includes merge results)
       const pushed = await pushStats();
       if (pushed) {
         console.log("[Sync] Handshake successful. Cloud profile matched.");
