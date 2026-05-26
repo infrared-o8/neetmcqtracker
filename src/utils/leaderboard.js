@@ -27,10 +27,12 @@ export function enrichLeaderboardPlayers(players, selfPlayerId, local) {
       ...p,
       studyMinutes,
       activityTotal: getActivityTotal(
-        p.totalSolved ?? local.totalSolved,
-        p.totalPagesRead ?? local.totalPagesRead,
+        Math.max(p.totalSolved || 0, local.totalSolved || 0),
+        Math.max(p.totalPagesRead || 0, local.totalPagesRead || 0),
         studyMinutes,
       ),
+      totalSolved: Math.max(p.totalSolved || 0, local.totalSolved || 0),
+      totalPagesRead: Math.max(p.totalPagesRead || 0, local.totalPagesRead || 0),
     };
   });
 

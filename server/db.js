@@ -88,22 +88,38 @@ export async function updateStats(playerId, stats) {
     const user = await User.findOne({ playerId });
     if (!user) return false;
     
-    if (stats.xp !== undefined) user.xp = stats.xp;
+    // Auth-Protection: Never allow cumulative totals to decrease
+    // This prevents "unhydrated" local state (zeros) from wiping cloud data
+    user.xp = Math.max(user.xp || 0, Number(stats.xp) || 0);
+    user.totalSolved = Math.max(user.totalSolved || 0, Number(stats.totalSolved) || 0);
+    user.totalPagesRead = Math.max(user.totalPagesRead || 0, Number(stats.totalPagesRead) || 0);
+    user.studyMinutes = Math.max(user.studyMinutes || 0, Number(stats.studyMinutes) || 0);
+    
+    // Status/Label updates: Take latest
     if (stats.level !== undefined) user.level = stats.level;
-    if (stats.totalSolved !== undefined) user.totalSolved = stats.totalSolved;
-    if (stats.totalPagesRead !== undefined) user.totalPagesRead = stats.totalPagesRead;
     if (stats.streak !== undefined) user.streak = stats.streak;
     if (stats.bestStreak !== undefined) user.bestStreak = stats.bestStreak;
     if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel;
-    if (stats.studyMinutes !== undefined) user.studyMinutes = stats.studyMinutes;
+
+    // Recalculate activityTotal explicitly to be safe
+    user.activityTotal = user.totalSolved + user.totalPagesRead + (user.studyMinutes * 0.5);
 
     // Persist Granular Logs for Heatmap/Today views
-    if (stats.dailyLogs) {
-      user.dailyLogs = stats.dailyLogs;
+    if (stats.dailyLogs && typeof stats.dailyLogs === "object") {
+      const merged = { ...(user.dailyLogs || {}) };
+      Object.entries(stats.dailyLogs).forEach(([date, count]) => {
+        merged[date] = Math.max(merged[date] || 0, count);
+      });
+      user.dailyLogs = merged;
       user.markModified("dailyLogs");
     }
-    if (stats.dailyPageLogs) {
-      user.dailyPageLogs = stats.dailyPageLogs;
+    
+    if (stats.dailyPageLogs && typeof stats.dailyPageLogs === "object") {
+      const merged = { ...(user.dailyPageLogs || {}) };
+      Object.entries(stats.dailyPageLogs).forEach(([date, count]) => {
+        merged[date] = Math.max(merged[date] || 0, count);
+      });
+      user.dailyPageLogs = merged;
       user.markModified("dailyPageLogs");
     }
     

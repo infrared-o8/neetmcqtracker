@@ -89,6 +89,12 @@ function antiCheatMiddleware(req, res, next) {
 
   const incomingStats = req.body;
   if (incomingStats && (incomingStats.totalSolved !== undefined || incomingStats.totalPagesRead !== undefined)) {
+    console.log(`[Sync] Incoming stats for ${playerId}:`, {
+      solved: incomingStats.totalSolved,
+      pages: incomingStats.totalPagesRead,
+      minutes: incomingStats.studyMinutes
+    });
+
     const isInitialSync = tracker.lastSolved === null;
     const prevSolved = tracker.lastSolved ?? incomingStats.totalSolved;
     const prevPages = tracker.lastPages ?? incomingStats.totalPagesRead;
@@ -106,13 +112,13 @@ function antiCheatMiddleware(req, res, next) {
       const recentPages = tracker.pageLogs.reduce((acc, log) => acc + log.count, 0) + pagesDelta;
       
       if (recentMcqs > MAX_MCQ_PER_MIN || recentPages > MAX_PAGES_PER_MIN) {
-        console.warn(`[Anti-Cheat] Velocity threshold exceeded for ${playerId}`);
+        console.warn(`[Anti-Cheat] Velocity threshold exceeded for ${playerId} (Recent MCQ: ${recentMcqs})`);
         return res.status(429).json({ error: "Velocity threshold exceeded. Please slow down your logging." });
       }
 
-      // Only log the delta if the check passes
       if (mcqDelta > 0) tracker.mcqLogs.push({ time: now, count: mcqDelta });
       if (pagesDelta > 0) tracker.pageLogs.push({ time: now, count: pagesDelta });
+      console.log(`[Anti-Cheat] Accepted deltas for ${playerId}: +${mcqDelta} MCQ, +${pagesDelta} Pages`);
     }
     
     const apDelta = mcqDelta + pagesDelta; 
@@ -290,29 +296,16 @@ app.put("/api/players/:playerId/stats", authMiddleware, requirePlayer, antiCheat
     return res.status(403).json({ error: "Identity mismatch." });
   }
 
-  let player = await getPlayer(req.playerId);
-  if (!player) {
+  const ok = await updateStats(req.playerId, req.body);
+  if (!ok) {
+    // If update failed (likely user doesn't exist yet), ensure they are registered
     await upsertPlayer({
       playerId: req.playerId,
       displayName: req.body.displayName || "Aspirant",
       decor: req.body.decor || {},
     });
-    player = await getPlayer(req.playerId);
+    await updateStats(req.playerId, req.body);
   }
-  
-  const stats = req.body;
-  await updateStats(req.playerId, {
-    xp: stats.xp ?? player.xp,
-    level: stats.level ?? player.level,
-    totalSolved: stats.totalSolved ?? player.totalSolved,
-    totalPagesRead: stats.totalPagesRead ?? player.totalPagesRead,
-    streak: stats.streak ?? player.streak,
-    bestStreak: stats.bestStreak ?? player.bestStreak,
-    rankLabel: stats.rankLabel ?? player.rankLabel,
-    studyMinutes: stats.studyMinutes != null ? Number(stats.studyMinutes) || 0 : (player.studyMinutes ?? 0),
-    dailyLogs: stats.dailyLogs ?? player.dailyLogs,
-    dailyPageLogs: stats.dailyPageLogs ?? player.dailyPageLogs,
-  });
   
   res.json({ ok: true });
 });
