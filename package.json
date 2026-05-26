@@ -16,7 +16,6 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.61.7",
     "@livekit/components-react": "^2.9.21",
-    "@rolldown/binding-win32-x64-msvc": "^1.0.2",
     "@tensorflow-models/blazeface": "^0.1.0",
     "@tensorflow-models/coco-ssd": "^2.2.3",
     "@tensorflow/tfjs": "^4.22.0",
