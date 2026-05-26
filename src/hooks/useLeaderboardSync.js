@@ -6,7 +6,7 @@ import { DEFAULT_DECOR } from "../data/profileDecor";
 import { apiFetch, apiUrl, checkServerHealth, getApiBase, normalizeServerUrl } from "../utils/api";
 
 export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}) {
-  const { getToken } = useAuth();
+  const { getToken, userId: clerkUserId, isLoaded: authLoaded } = useAuth();
   const serverUrl = useTrackerStore((s) => s.preferences.serverUrl);
   const setPreferences = useTrackerStore((s) => s.setPreferences);
   const getSnapshot = useTrackerStore((s) => s.getSnapshot);
@@ -19,6 +19,9 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
 
   const apiBase = getApiBase(serverUrl);
   const usingProxy = !apiBase;
+
+  // Crucial: Prioritize Clerk ID to prevent identity mismatches on protected routes
+  const activePlayerId = clerkUserId || useProfileStore.getState().playerId;
 
   const checkHealth = useCallback(
     async (urlOverride) => {
@@ -34,36 +37,38 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   );
 
   const register = useCallback(async () => {
-    const { playerId, displayName, decor } = useProfileStore.getState();
-    if (!playerId) return false;
+    if (!activePlayerId) return false;
     try {
-      const token = await getToken();
+      const { displayName, decor } = useProfileStore.getState();
+      const token = clerkUserId ? await getToken() : null;
+      
       const res = await apiFetch(serverUrl, "/api/players/register", {
         method: "POST",
         headers: { 
-          "X-Player-Id": playerId,
-          "Authorization": `Bearer ${token}`
+          "X-Player-Id": activePlayerId,
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ playerId, displayName, decor: decor || DEFAULT_DECOR }),
+        body: JSON.stringify({ playerId: activePlayerId, displayName, decor: decor || DEFAULT_DECOR }),
       });
       return res.ok;
     } catch (e) {
       setLastError(e.message);
       return false;
     }
-  }, [serverUrl, getToken]);
+  }, [serverUrl, getToken, activePlayerId, clerkUserId]);
 
   const pushStats = useCallback(async () => {
-    const { playerId, displayName: name, decor: d } = useProfileStore.getState();
-    if (!playerId) return false;
+    if (!activePlayerId) return false;
     try {
+      const { displayName: name, decor: d } = useProfileStore.getState();
       const stats = getSnapshot();
-      const token = await getToken();
-      const res = await apiFetch(serverUrl, `/api/players/${playerId}/stats`, {
+      const token = clerkUserId ? await getToken() : null;
+
+      const res = await apiFetch(serverUrl, `/api/players/${activePlayerId}/stats`, {
         method: "PUT",
         headers: { 
-          "X-Player-Id": playerId,
-          "Authorization": `Bearer ${token}`
+          "X-Player-Id": activePlayerId,
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           ...stats,
@@ -78,12 +83,14 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       setLastError(e.message);
       return false;
     }
-  }, [serverUrl, getSnapshot, setLastSyncedAt, getToken]);
+  }, [serverUrl, getSnapshot, setLastSyncedAt, getToken, activePlayerId, clerkUserId]);
 
   const syncNow = useCallback(async () => {
-    ensurePlayerId();
-    const { playerId } = useProfileStore.getState();
-    if (!playerId) return { ok: false, reason: "no-player" };
+    if (!authLoaded) return { ok: false, reason: "auth-loading" };
+    
+    // Ensure we have an ID
+    if (!clerkUserId) ensurePlayerId();
+    if (!activePlayerId) return { ok: false, reason: "no-player" };
 
     const health = await checkHealth();
     if (!health.ok) {
@@ -94,10 +101,10 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     await register();
     const pushed = await pushStats();
     if (pushed) {
-      console.log("[Sync] Handshake successful. Queue flushed.");
+      console.log("[Sync] Handshake successful. Stats updated.");
     }
     return { ok: pushed, reason: pushed ? null : "sync-failed" };
-  }, [ensurePlayerId, checkHealth, register, pushStats]);
+  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats]);
 
   const scheduleSync = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
