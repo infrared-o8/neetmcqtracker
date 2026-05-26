@@ -2,10 +2,21 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-import { cloudflare } from "@cloudflare/vite-plugin";
+// Optional Cloudflare plugin for production/deployment environments
+let cloudflarePlugin = null;
+try {
+  const { cloudflare } = await import("@cloudflare/vite-plugin");
+  cloudflarePlugin = cloudflare;
+} catch (e) {
+  // Plugin not installed locally, skipping
+}
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), cloudflare()],
+  plugins: [
+    react(), 
+    tailwindcss(),
+    cloudflarePlugin ? cloudflarePlugin() : null
+  ].filter(Boolean),
   server: {
     proxy: {
       "/api": {
