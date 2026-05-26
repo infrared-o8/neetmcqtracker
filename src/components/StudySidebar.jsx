@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate, Cloud, BookOpen, Video, User } from "lucide-react";
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "../hooks/useAuthShim";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { PixelCompanion } from "./PixelCompanion";
 import { useAmbientAudio } from "../hooks/useAmbientAudio";

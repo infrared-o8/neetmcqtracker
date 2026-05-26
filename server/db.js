@@ -31,6 +31,20 @@ userSchema.index({ activityTotal: -1, studyMinutes: -1 });
 
 export const User = mongoose.model("User", userSchema);
 
+const roomSchema = new mongoose.Schema({
+  roomId: { type: String, required: true, unique: true },
+  title: { type: String, required: true },
+  description: { type: String, default: "" },
+  creatorId: { type: String, required: true },
+  creatorName: { type: String, required: true },
+  capacity: { type: Number, default: 20 },
+  password: { type: String, default: "" }, // Optional password
+  isPasswordProtected: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+
+export const Room = mongoose.model("Room", roomSchema);
+
 export const connectDB = async () => {
   if (!process.env.MONGO_URI) {
     console.error("❌ ERROR: Missing MONGO_URI environment variable.");
@@ -84,8 +98,14 @@ export async function updateStats(playerId, stats) {
     if (stats.studyMinutes !== undefined) user.studyMinutes = stats.studyMinutes;
 
     // Persist Granular Logs for Heatmap/Today views
-    if (stats.dailyLogs) user.dailyLogs = stats.dailyLogs;
-    if (stats.dailyPageLogs) user.dailyPageLogs = stats.dailyPageLogs;
+    if (stats.dailyLogs) {
+      user.dailyLogs = stats.dailyLogs;
+      user.markModified("dailyLogs");
+    }
+    if (stats.dailyPageLogs) {
+      user.dailyPageLogs = stats.dailyPageLogs;
+      user.markModified("dailyPageLogs");
+    }
     
     await user.save();
     return true;

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Trophy, User, Video, Settings } from "lucide-react";
-import { SignedIn, UserButton } from "@clerk/clerk-react";
+import { SignedIn, UserButton } from "../../hooks/useAuthShim";
 
 export function MobileNav() {
   const navClass = ({ isActive }) =>

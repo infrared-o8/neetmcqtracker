@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "./useAuthShim";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { useProfileStore } from "../store/useProfileStore";
 import { DEFAULT_DECOR } from "../data/profileDecor";
@@ -252,7 +252,8 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   }, [enabled, scheduleSync]);
 
   useEffect(() => {
-    if (!enabled || studyMinutes <= 0) return undefined;
+    if (!enabled) return undefined;
+    // Sync immediately on mount/enable, and whenever studyMinutes changes
     scheduleSync();
     return undefined;
   }, [enabled, studyMinutes, scheduleSync]);

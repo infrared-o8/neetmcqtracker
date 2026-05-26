@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ClerkProvider, SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
+import { ClerkProvider } from "@clerk/clerk-react";
+import { useAuth } from "./hooks/useAuthShim";
 import { StudySidebar } from "./components/StudySidebar";
 import { YoutubeMedia } from "./components/YoutubeMedia";
 import { ThemeBackground } from "./components/ThemeBackground";
@@ -77,39 +78,47 @@ function App() {
 
   const activeEffect = FRAMES[decor.frameId]?.name || 'NONE';
 
+  const AppContent = (
+    <BrowserRouter>
+      <FaceStudyProvider>
+        <main className={`relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100 ${preferences.uiOptimized ? 'ui-optimized' : ''} ${preferences.disableAnimations ? 'no-animations' : ''}`}>
+          <YoutubeMedia />
+          <ThemeBackground cozyPreset={preferences.cozyPreset} />
+          <MotionDiv
+            className="relative z-10 flex min-h-0 flex-1 flex-col"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.38 }}
+          >
+            <div className="flex min-h-screen flex-1 relative overflow-hidden">
+              <div className="hidden md:flex h-full shrink-0">
+                <StudySidebar />
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto pb-16 md:pb-0 scroll-smooth">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/leaderboard" element={<LeaderboardPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/study-room" element={<StudyRoomPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </Routes>
+              </div>
+              <MobileNav />
+            </div>
+          </MotionDiv>
+        </main>
+      </FaceStudyProvider>
+    </BrowserRouter>
+  );
+
+  if (!CLERK_PUBLISHABLE_KEY) {
+    return AppContent;
+  }
+
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
       <ClerkSync />
-      <BrowserRouter>
-        <FaceStudyProvider>
-          <main className={`relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100 ${preferences.uiOptimized ? 'ui-optimized' : ''} ${preferences.disableAnimations ? 'no-animations' : ''}`}>
-            <YoutubeMedia />
-            <ThemeBackground cozyPreset={preferences.cozyPreset} />
-            <MotionDiv
-              className="relative z-10 flex min-h-0 flex-1 flex-col"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.38 }}
-            >
-              <div className="flex min-h-screen flex-1 relative overflow-hidden">
-                <div className="hidden md:flex h-full shrink-0">
-                  <StudySidebar />
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto pb-16 md:pb-0 scroll-smooth">
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/leaderboard" element={<LeaderboardPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/study-room" element={<StudyRoomPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                  </Routes>
-                </div>
-                <MobileNav />
-              </div>
-            </MotionDiv>
-          </main>
-        </FaceStudyProvider>
-      </BrowserRouter>
+      {AppContent}
     </ClerkProvider>
   );
 }
