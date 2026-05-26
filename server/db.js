@@ -21,7 +21,11 @@ const userSchema = new mongoose.Schema({
 
 // Calculate activityTotal before saving to allow easy sorting
 userSchema.pre('save', function(next) {
-  this.activityTotal = this.totalSolved + this.totalPagesRead + ((this.studyMinutes || 0) * 0.5);
+  const solved = Number(this.totalSolved) || 0;
+  const pages = Number(this.totalPagesRead) || 0;
+  const minutes = Number(this.studyMinutes) || 0;
+  
+  this.activityTotal = solved + pages + (minutes * 0.5);
   this.updatedAt = new Date();
   next();
 });

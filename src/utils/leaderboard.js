@@ -10,41 +10,44 @@ export function readStudyMinutes(player) {
 
 /** Merge local face-study stats for the signed-in player row. */
 export function enrichLeaderboardPlayers(players, selfPlayerId, local) {
-  if (!selfPlayerId || !local) return players;
+  if (!players || !Array.isArray(players)) return [];
 
-  // 1. Enrich data
+  // 1. Enrichment pass
   const enriched = players.map((p) => {
-    if (p.playerId !== selfPlayerId) {
-      const studyMinutes = readStudyMinutes(p);
-      return {
-        ...p,
-        studyMinutes,
-        activityTotal: getActivityTotal(p.totalSolved, p.totalPagesRead, studyMinutes),
-      };
-    }
-    const studyMinutes = Math.max(readStudyMinutes(p), local.studyMinutes ?? 0);
+    const isSelf = selfPlayerId && p.playerId === selfPlayerId;
+    const l = isSelf && local ? local : {};
+
+    // Robust field reading (handle possible case variations or missing keys)
+    const sSolved = p.totalSolved ?? p.total_solved ?? 0;
+    const sPages = p.totalPagesRead ?? p.total_pages_read ?? 0;
+    const sMinutes = p.studyMinutes ?? p.study_minutes ?? 0;
+
+    // Get the most advanced numbers available (Server vs Local)
+    const totalSolved = Math.max(Number(sSolved) || 0, Number(l.totalSolved) || 0);
+    const totalPagesRead = Math.max(Number(sPages) || 0, Number(l.totalPagesRead) || 0);
+    const studyMinutes = Math.max(Number(sMinutes) || 0, Number(l.studyMinutes) || 0);
+
     return {
       ...p,
+      totalSolved,
+      totalPagesRead,
       studyMinutes,
-      activityTotal: getActivityTotal(
-        Math.max(p.totalSolved || 0, local.totalSolved || 0),
-        Math.max(p.totalPagesRead || 0, local.totalPagesRead || 0),
-        studyMinutes,
-      ),
-      totalSolved: Math.max(p.totalSolved || 0, local.totalSolved || 0),
-      totalPagesRead: Math.max(p.totalPagesRead || 0, local.totalPagesRead || 0),
+      activityTotal: getActivityTotal(totalSolved, totalPagesRead, studyMinutes),
     };
   });
 
-  // 2. Re-sort based on new activity totals (Primary: Activity, Secondary: Study Minutes)
+  // 2. Re-sort based on new activity totals
   enriched.sort((a, b) => {
-    if (b.activityTotal !== a.activityTotal) {
-      return b.activityTotal - a.activityTotal;
-    }
-    return (b.studyMinutes || 0) - (a.studyMinutes || 0);
+    const aTotal = Number(a.activityTotal) || 0;
+    const bTotal = Number(b.activityTotal) || 0;
+    if (bTotal !== aTotal) return bTotal - aTotal;
+    
+    const aMin = Number(a.studyMinutes) || 0;
+    const bMin = Number(b.studyMinutes) || 0;
+    return bMin - aMin;
   });
 
-  // 3. Re-assign ranks based on sorted position
+  // 3. Re-assign ranks
   return enriched.map((p, index) => ({
     ...p,
     rank: index + 1,

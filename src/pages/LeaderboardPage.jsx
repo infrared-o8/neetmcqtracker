@@ -7,7 +7,7 @@ import { useProfileStore } from "../store/useProfileStore";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { enrichLeaderboardPlayers, readStudyMinutes } from "../utils/leaderboard";
 
-const CACHE_KEY = "neet-leaderboard-cache";
+const CACHE_KEY = "neet-leaderboard-cache-v3";
 
 export function LeaderboardPage() {
   const [players, setPlayers] = useState(() => {
