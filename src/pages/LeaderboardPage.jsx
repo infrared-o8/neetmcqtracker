@@ -142,21 +142,6 @@ export function LeaderboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {["activity", "xp", "streak"].map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                setSort(s);
-                setIsCached(true); // Reset cache flag on sort change to show loading properly
-              }}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-all ${
-                sort === s ? "bg-violet-500/25 text-violet-200 border border-violet-500/30" : "text-zinc-500 hover:text-zinc-300 border border-transparent"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
           <button
             type="button"
             onClick={load}

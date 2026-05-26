@@ -88,23 +88,67 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   const syncNow = useCallback(async () => {
     if (!authLoaded) return { ok: false, reason: "auth-loading" };
     
-    // Ensure we have an ID
     if (!clerkUserId) ensurePlayerId();
     if (!activePlayerId) return { ok: false, reason: "no-player" };
 
     const health = await checkHealth();
-    if (!health.ok) {
-      console.warn("[Sync] Network offline. Changes queued locally.");
-      return { ok: false, reason: "offline", error: health.error };
-    }
+    if (!health.ok) return { ok: false, reason: "offline" };
 
-    await register();
-    const pushed = await pushStats();
-    if (pushed) {
-      console.log("[Sync] Handshake successful. Stats updated.");
+    try {
+      // 1. Initial Handshake: Register and check existing cloud state
+      await register();
+      
+      const res = await apiFetch(serverUrl, `/api/players/${activePlayerId}`);
+      if (res.ok) {
+        const cloudData = await res.json();
+        const localStats = getSnapshot();
+
+        // 2. Conflict Resolution: Cloud-Wins-if-Greater
+        // This ensures progress is restored on new devices/browsers
+        const needsPull = 
+          (cloudData.xp > localStats.xp) || 
+          (cloudData.totalSolved > localStats.totalSolved) || 
+          (cloudData.studyMinutes > localStats.studyMinutes);
+
+        if (needsPull) {
+          console.log("[Sync] Cloud state is ahead. Synchronizing local store...");
+          
+          const currentStore = useTrackerStore.getState();
+          
+          // Merge daily logs (ensure we keep highest progress per day)
+          const mergedDailyLogs = { ...currentStore.dailyLogs };
+          Object.entries(cloudData.dailyLogs || {}).forEach(([date, count]) => {
+            mergedDailyLogs[date] = Math.max(mergedDailyLogs[date] || 0, count);
+          });
+
+          const mergedDailyPageLogs = { ...currentStore.dailyPageLogs };
+          Object.entries(cloudData.dailyPageLogs || {}).forEach(([date, count]) => {
+            mergedDailyPageLogs[date] = Math.max(mergedDailyPageLogs[date] || 0, count);
+          });
+
+          useTrackerStore.setState({
+            xp: Math.max(localStats.xp, cloudData.xp || 0),
+            totalSolved: Math.max(localStats.totalSolved, cloudData.totalSolved || 0),
+            totalPagesRead: Math.max(localStats.totalPagesRead, cloudData.totalPagesRead || 0),
+            studyMinutes: Math.max(localStats.studyMinutes, cloudData.studyMinutes || 0),
+            streak: Math.max(currentStore.streak, cloudData.streak || 0),
+            bestStreak: Math.max(currentStore.bestStreak, cloudData.bestStreak || 0),
+            dailyLogs: mergedDailyLogs,
+            dailyPageLogs: mergedDailyPageLogs,
+          });
+        }
+      }
+      
+      // 3. Push local changes if they are ahead or equivalent
+      const pushed = await pushStats();
+      if (pushed) console.log("[Sync] Handshake successful. Progress secured.");
+      
+      return { ok: pushed, reason: pushed ? null : "sync-failed" };
+    } catch (e) {
+      setLastError(e.message);
+      return { ok: false, reason: "error", error: e.message };
     }
-    return { ok: pushed, reason: pushed ? null : "sync-failed" };
-  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats]);
+  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats, getSnapshot, serverUrl]);
 
   const scheduleSync = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

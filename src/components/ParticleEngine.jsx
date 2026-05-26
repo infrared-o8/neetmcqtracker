@@ -45,6 +45,7 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
     resize();
 
     // --- RENDER UTILITIES ---
+    const GLOBAL_SCALE = 1.75;
 
     const drawGlowPoint = (ctx, x, y, size, color, alpha) => {
       if (reduceGpuUsage) {
@@ -247,10 +248,10 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
         }
 
         // Project 3D to 2D
-        const scale = FOCAL_LENGTH / (FOCAL_LENGTH + p.z);
+        const scale = (FOCAL_LENGTH / (FOCAL_LENGTH + p.z)) * GLOBAL_SCALE;
         const xProj = cx + p.x * scale;
         const yProj = cy + p.y * scale;
-        const alpha = (p.life / p.maxLife) * Math.min(1, scale * 2);
+        const alpha = (p.life / p.maxLife) * Math.min(1, (scale / GLOBAL_SCALE) * 2);
 
         // Draw based on type
         if (p.type === 'math') {

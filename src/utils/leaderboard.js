@@ -11,7 +11,9 @@ export function readStudyMinutes(player) {
 /** Merge local face-study stats for the signed-in player row. */
 export function enrichLeaderboardPlayers(players, selfPlayerId, local) {
   if (!selfPlayerId || !local) return players;
-  return players.map((p) => {
+
+  // 1. Enrich data
+  const enriched = players.map((p) => {
     if (p.playerId !== selfPlayerId) {
       const studyMinutes = readStudyMinutes(p);
       return {
@@ -31,4 +33,18 @@ export function enrichLeaderboardPlayers(players, selfPlayerId, local) {
       ),
     };
   });
+
+  // 2. Re-sort based on new activity totals (Primary: Activity, Secondary: Study Minutes)
+  enriched.sort((a, b) => {
+    if (b.activityTotal !== a.activityTotal) {
+      return b.activityTotal - a.activityTotal;
+    }
+    return (b.studyMinutes || 0) - (a.studyMinutes || 0);
+  });
+
+  // 3. Re-assign ranks based on sorted position
+  return enriched.map((p, index) => ({
+    ...p,
+    rank: index + 1,
+  }));
 }

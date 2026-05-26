@@ -19,16 +19,28 @@ export function LeaderboardRow({
       onMouseLeave={onLeave}
       onClick={onOpenProfile}
       className={`leaderboard-row group cursor-pointer border-b border-white/5 transition ${
-        isFirst ? "rank-one-row" : ""
+        player.rank === 1 ? "rank-one-row" : 
+        player.rank === 2 ? "rank-two-row" : 
+        player.rank === 3 ? "rank-three-row" : ""
       } ${isSelf ? "bg-fuchsia-500/10" : "hover:bg-violet-500/8"} ${
         showHoverHint ? "leaderboard-row-hint" : ""
       }`}
     >
       <td className="px-3 py-3 text-center">
-        {isFirst ? (
+        {player.rank === 1 ? (
           <span className="rank-one-crown inline-flex items-center gap-1 text-amber-300">
             <Crown className="h-4 w-4" />
             <span className="font-bold">1</span>
+          </span>
+        ) : player.rank === 2 ? (
+          <span className="inline-flex items-center gap-1 text-slate-300">
+            <Crown className="h-4 w-4 opacity-70" />
+            <span className="font-bold text-sm">2</span>
+          </span>
+        ) : player.rank === 3 ? (
+          <span className="inline-flex items-center gap-1 text-orange-400/80">
+            <Crown className="h-4 w-4 opacity-50" />
+            <span className="font-bold text-sm">3</span>
           </span>
         ) : (
           <span className="text-sm font-bold text-zinc-500">#{player.rank}</span>
@@ -51,14 +63,14 @@ export function LeaderboardRow({
           </div>
         </div>
       </td>
+      <td className="px-3 py-3 text-right tabular-nums text-sm font-bold text-white">
+        {player.activityTotal?.toLocaleString() ?? 0}
+      </td>
       <td className="px-3 py-3 text-right tabular-nums text-sm font-semibold text-cyan-200">
         {player.totalSolved?.toLocaleString() ?? 0}
       </td>
       <td className="px-3 py-3 text-right tabular-nums text-sm font-semibold text-violet-200">
         {player.totalPagesRead?.toLocaleString() ?? 0}
-      </td>
-      <td className="px-3 py-3 text-right tabular-nums text-sm font-bold text-white">
-        {player.activityTotal?.toLocaleString() ?? 0}
       </td>
       <td className="hidden px-3 py-3 text-right text-sm text-zinc-400 sm:table-cell">
         {player.streak}d

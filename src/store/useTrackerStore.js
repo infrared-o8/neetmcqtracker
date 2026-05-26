@@ -349,6 +349,8 @@ export const useTrackerStore = create(
           level: s.level,
           totalSolved: s.totalSolved,
           totalPagesRead: s.totalPagesRead,
+          dailyLogs: s.dailyLogs,
+          dailyPageLogs: s.dailyPageLogs,
           activityTotal,
           streak: s.streak,
           bestStreak: s.bestStreak,

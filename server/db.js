@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema({
   level: { type: Number, default: 1 },
   totalSolved: { type: Number, default: 0 },
   totalPagesRead: { type: Number, default: 0 },
+  dailyLogs: { type: Object, default: {} }, // { "YYYY-MM-DD": count }
+  dailyPageLogs: { type: Object, default: {} },
   streak: { type: Number, default: 0 },
   bestStreak: { type: Number, default: 0 },
   rankLabel: { type: String, default: "Beginner" },
@@ -80,6 +82,10 @@ export async function updateStats(playerId, stats) {
     if (stats.bestStreak !== undefined) user.bestStreak = stats.bestStreak;
     if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel;
     if (stats.studyMinutes !== undefined) user.studyMinutes = stats.studyMinutes;
+
+    // Persist Granular Logs for Heatmap/Today views
+    if (stats.dailyLogs) user.dailyLogs = stats.dailyLogs;
+    if (stats.dailyPageLogs) user.dailyPageLogs = stats.dailyPageLogs;
     
     await user.save();
     return true;
@@ -101,6 +107,8 @@ export async function getPlayer(playerId) {
       level: user.level,
       totalSolved: user.totalSolved,
       totalPagesRead: user.totalPagesRead,
+      dailyLogs: user.dailyLogs || {},
+      dailyPageLogs: user.dailyPageLogs || {},
       activityTotal: user.activityTotal,
       streak: user.streak,
       bestStreak: user.bestStreak,
