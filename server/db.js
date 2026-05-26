@@ -31,14 +31,21 @@ export const User = mongoose.model("User", userSchema);
 
 export const connectDB = async () => {
   if (!process.env.MONGO_URI) {
-    console.warn("Missing MONGO_URI. Skipping database connection. Provide a Mongo string for cloud persistence.");
+    console.error("❌ ERROR: Missing MONGO_URI environment variable.");
+    console.log("👉 Action: Add MONGO_URI to your Render Environment Variables.");
     return;
   }
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log("MongoDB Connected Successfully");
+    mongoose.set('strictQuery', false);
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000 // Timeout after 5s instead of hanging
+    });
+    console.log("✅ MongoDB Connected Successfully to Cloud Atlas");
   } catch (err) {
-    console.error("MongoDB Connection Error:", err);
+    console.error("❌ MongoDB Connection Error:", err.message);
+    if (err.message.includes("IP not whitelisted")) {
+      console.log("👉 Action: Add 0.0.0.0/0 to Network Access in MongoDB Atlas.");
+    }
   }
 };
 

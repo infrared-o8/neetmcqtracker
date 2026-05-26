@@ -12,7 +12,7 @@ const DEFAULT_PREFERENCES = {
   soundEnabled: true,
   hapticsEnabled: true,
   ambientTrack: "off",
-  serverUrl: "https://8598-103-120-250-137.ngrok-free.app", // Default production link
+  serverUrl: "https://neet-tracker-backend-grru.onrender.com", // Default production link
   youtubeAudioUrl: "https://www.youtube.com/watch?v=jfKfPfyJRdk", // Lofi default
   youtubeVideoUrl: "https://www.youtube.com/watch?v=5wT8S8pT7h0", // Aesthetic study background
   bgVideoEnabled: true,

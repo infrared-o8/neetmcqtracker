@@ -48,8 +48,8 @@ app.use("/api/players", apiLimiter);
 
 // --- Part 1.1 & 1.2: Anti-Cheat & Velocity Logic ---
 const userTracking = new Map();
-const MAX_MCQ_PER_MIN = 3;
-const MAX_PAGES_PER_MIN = 2;
+const MAX_MCQ_PER_MIN = 15; // Increased to 15 to allow for burst logging
+const MAX_PAGES_PER_MIN = 10;
 const MAX_DAILY_AP = 1200;
 
 function antiCheatMiddleware(req, res, next) {
@@ -60,14 +60,15 @@ function antiCheatMiddleware(req, res, next) {
   const ONE_MINUTE = 60 * 1000;
   const ONE_DAY = 24 * 60 * 60 * 1000;
 
+  // Initialize tracker if not exists
   if (!userTracking.has(playerId)) {
     userTracking.set(playerId, {
       mcqLogs: [],
       pageLogs: [],
       dailyAp: 0,
       dayStart: now,
-      lastSolved: 0,
-      lastPages: 0
+      lastSolved: null, // Null indicates initial sync
+      lastPages: null
     });
   }
 
@@ -82,34 +83,40 @@ function antiCheatMiddleware(req, res, next) {
   const incomingStats = req.body;
   if (incomingStats && (incomingStats.totalSolved !== undefined || incomingStats.totalPagesRead !== undefined)) {
     
-    // Calculate incoming delta based on cached totals
-    const prevSolved = tracker.lastSolved || 0;
-    const prevPages = tracker.lastPages || 0;
+    // Check if this is the VERY FIRST sync for this process
+    const isInitialSync = tracker.lastSolved === null;
     
-    const incomingSolved = incomingStats.totalSolved || prevSolved;
-    const incomingPages = incomingStats.totalPagesRead || prevPages;
+    const prevSolved = tracker.lastSolved ?? incomingStats.totalSolved;
+    const prevPages = tracker.lastPages ?? incomingStats.totalPagesRead;
+    
+    const incomingSolved = incomingStats.totalSolved ?? prevSolved;
+    const incomingPages = incomingStats.totalPagesRead ?? prevPages;
 
     const mcqDelta = Math.max(0, incomingSolved - prevSolved);
     const pagesDelta = Math.max(0, incomingPages - prevPages);
     
-    if (mcqDelta > 0) tracker.mcqLogs.push({ time: now, count: mcqDelta });
-    if (pagesDelta > 0) tracker.pageLogs.push({ time: now, count: pagesDelta });
-    
-    // Purge old logs outside the 1-minute window
-    tracker.mcqLogs = tracker.mcqLogs.filter(log => now - log.time <= ONE_MINUTE);
-    tracker.pageLogs = tracker.pageLogs.filter(log => now - log.time <= ONE_MINUTE);
-    
-    const recentMcqs = tracker.mcqLogs.reduce((acc, log) => acc + log.count, 0);
-    const recentPages = tracker.pageLogs.reduce((acc, log) => acc + log.count, 0);
-    
-    // Rule 1: Mathematical Rate Safeguards
-    if (recentMcqs > MAX_MCQ_PER_MIN || recentPages > MAX_PAGES_PER_MIN) {
-      console.warn(`[Anti-Cheat] Velocity threshold exceeded for ${playerId}`);
-      return res.status(429).json({ error: "Velocity threshold exceeded. Human limits apply." });
+    // RULE: If it's an initial sync, we accept the total WITHOUT velocity checking
+    // This allows users with 50+ MCQs locally to upload them to the cloud.
+    if (!isInitialSync) {
+      if (mcqDelta > 0) tracker.mcqLogs.push({ time: now, count: mcqDelta });
+      if (pagesDelta > 0) tracker.pageLogs.push({ time: now, count: pagesDelta });
+      
+      // Purge old logs outside the 1-minute window
+      tracker.mcqLogs = tracker.mcqLogs.filter(log => now - log.time <= ONE_MINUTE);
+      tracker.pageLogs = tracker.pageLogs.filter(log => now - log.time <= ONE_MINUTE);
+      
+      const recentMcqs = tracker.mcqLogs.reduce((acc, log) => acc + log.count, 0);
+      const recentPages = tracker.pageLogs.reduce((acc, log) => acc + log.count, 0);
+      
+      // Rule 1: Mathematical Rate Safeguards
+      if (recentMcqs > MAX_MCQ_PER_MIN || recentPages > MAX_PAGES_PER_MIN) {
+        console.warn(`[Anti-Cheat] Velocity threshold exceeded for ${playerId} (MCQ: ${recentMcqs})`);
+        return res.status(429).json({ error: "Velocity threshold exceeded. Please slow down your logging." });
+      }
     }
     
-    // Rule 2: Daily Cap Ingestion
-    const apDelta = mcqDelta + pagesDelta; // Simple AP delta
+    // Rule 2: Daily Cap Ingestion (Always applied)
+    const apDelta = mcqDelta + pagesDelta; 
     tracker.dailyAp += apDelta;
     if (tracker.dailyAp > MAX_DAILY_AP) {
       console.warn(`[Anti-Cheat] Daily AP cap exceeded for ${playerId}`);
