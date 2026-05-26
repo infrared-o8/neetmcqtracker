@@ -223,6 +223,8 @@ app.put("/api/players/:playerId/stats", authMiddleware, requirePlayer, antiCheat
     bestStreak: stats.bestStreak ?? player.bestStreak,
     rankLabel: stats.rankLabel ?? player.rankLabel,
     studyMinutes: stats.studyMinutes != null ? Number(stats.studyMinutes) || 0 : (player.studyMinutes ?? 0),
+    dailyLogs: stats.dailyLogs ?? player.dailyLogs,
+    dailyPageLogs: stats.dailyPageLogs ?? player.dailyPageLogs,
   });
   
   res.json({ ok: true });
