@@ -6,7 +6,7 @@ import {
   useLocalParticipant
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RoomSidebar } from '../components/studyroom/RoomSidebar';
 import { ParticipantTile } from '../components/studyroom/ParticipantTile';
@@ -33,6 +33,7 @@ import {
   LogOut,
   Mic,
   MicOff,
+  Video,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -231,16 +232,22 @@ export default function StudyRoomPage() {
                 description: 'The official 24/7 focus hall for all aspirants. Open to everyone.',
                 creatorName: 'System',
                 capacity: 50,
-                isPasswordProtected: false
+                activeCount: 0, // Will be updated by enrichment if needed
+                isPasswordProtected: false,
+                isMicOpen: false
               }}
-              onJoin={() => joinRoom('NEET-Study-Room')}
+              onJoin={() => joinRoom({
+                roomId: 'NEET-Study-Room',
+                title: 'Global High-Yield Hall',
+                isMicOpen: false
+              })}
             />
 
             {rooms.map(room => (
               <RoomCard 
                 key={room.roomId}
                 room={room}
-                onJoin={() => room.isPasswordProtected ? setShowPasswordModal(room) : joinRoom(room.roomId)}
+                onJoin={() => room.isPasswordProtected ? setShowPasswordModal(room) : joinRoom(room)}
                 onDelete={() => deleteRoom(room.roomId)}
                 isCreator={room.creatorId === playerId}
               />
@@ -267,7 +274,7 @@ export default function StudyRoomPage() {
               setShowPasswordModal(null);
               setRoomPassword('');
             }}
-            onJoin={(pwd) => joinRoom(showPasswordModal.roomId, pwd)}
+            onJoin={(pwd) => joinRoom(showPasswordModal, pwd)}
           />
         )}
       </AnimatePresence>
