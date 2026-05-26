@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { useProfileStore } from "../store/useProfileStore";
 import { DEFAULT_DECOR } from "../data/profileDecor";
 import { apiFetch, apiUrl, checkServerHealth, getApiBase, normalizeServerUrl } from "../utils/api";
 
 export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}) {
+  const { getToken } = useAuth();
   const serverUrl = useTrackerStore((s) => s.preferences.serverUrl);
   const setPreferences = useTrackerStore((s) => s.setPreferences);
   const getSnapshot = useTrackerStore((s) => s.getSnapshot);
@@ -35,9 +37,13 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     const { playerId, displayName, decor } = useProfileStore.getState();
     if (!playerId) return false;
     try {
+      const token = await getToken();
       const res = await apiFetch(serverUrl, "/api/players/register", {
         method: "POST",
-        headers: { "X-Player-Id": playerId },
+        headers: { 
+          "X-Player-Id": playerId,
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ playerId, displayName, decor: decor || DEFAULT_DECOR }),
       });
       return res.ok;
@@ -45,16 +51,20 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       setLastError(e.message);
       return false;
     }
-  }, [serverUrl]);
+  }, [serverUrl, getToken]);
 
   const pushStats = useCallback(async () => {
     const { playerId, displayName: name, decor: d } = useProfileStore.getState();
     if (!playerId) return false;
     try {
       const stats = getSnapshot();
+      const token = await getToken();
       const res = await apiFetch(serverUrl, `/api/players/${playerId}/stats`, {
         method: "PUT",
-        headers: { "X-Player-Id": playerId },
+        headers: { 
+          "X-Player-Id": playerId,
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           ...stats,
           displayName: name,
@@ -68,7 +78,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       setLastError(e.message);
       return false;
     }
-  }, [serverUrl, getSnapshot, setLastSyncedAt]);
+  }, [serverUrl, getSnapshot, setLastSyncedAt, getToken]);
 
   const syncNow = useCallback(async () => {
     ensurePlayerId();

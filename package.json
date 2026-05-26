@@ -14,6 +14,7 @@
     "server:stop": "npx --yes kill-port 3847"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.61.7",
     "@livekit/components-react": "^2.9.21",
     "@tensorflow-models/blazeface": "^0.1.0",
     "@tensorflow-models/coco-ssd": "^2.2.3",

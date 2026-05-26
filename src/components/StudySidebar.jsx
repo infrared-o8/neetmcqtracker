@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate, Cloud, BookOpen, Video, User } from "lucide-react";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { PixelCompanion } from "./PixelCompanion";
 import { useAmbientAudio } from "../hooks/useAmbientAudio";
 import { parseYoutubeId } from "../utils/youtube";
 import { StudyCameraPanel } from "./study/StudyCameraPanel";
+import { LogIn, UserPlus } from "lucide-react";
 
 const navClass = ({ isActive }) =>
   `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
@@ -57,7 +59,28 @@ export function StudySidebar() {
 
   return (
     <aside className={`${preferences.uiOptimized ? 'bg-zinc-950' : 'genz-glass'} flex w-[260px] shrink-0 flex-col border-r border-white/5 p-4 md:w-[280px]`}>
-      <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">NEET Tracker</p>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">NEET Tracker</p>
+        <SignedIn>
+          <UserButton appearance={{ elements: { userButtonAvatarBox: "h-6 w-6" } }} />
+        </SignedIn>
+      </div>
+
+      <SignedOut>
+        <div className="mt-4 flex flex-col gap-2">
+          <SignInButton mode="modal">
+            <button className="flex w-full items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black uppercase tracking-widest text-black transition hover:bg-zinc-200">
+              <LogIn className="h-3.5 w-3.5" /> Log In
+            </button>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <button className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-white/10">
+              <UserPlus className="h-3.5 w-3.5" /> Sign Up
+            </button>
+          </SignUpButton>
+        </div>
+      </SignedOut>
+
       <nav className="mt-4 flex flex-col gap-1">
         <NavLink to="/" end className={navClass}>
           <LayoutDashboard className="h-4 w-4" />

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion } from "framer-motion";
+import { ClerkProvider, SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
 import { StudySidebar } from "./components/StudySidebar";
 import { YoutubeMedia } from "./components/YoutubeMedia";
 import { ThemeBackground } from "./components/ThemeBackground";
@@ -20,6 +21,28 @@ import { FaceStudyTopBar } from "./components/study/FaceStudyTopBar";
 import { useMicroRewards } from "./hooks/useMicroRewards";
 
 const MotionDiv = motion.div;
+
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!CLERK_PUBLISHABLE_KEY) {
+  console.warn("Missing VITE_CLERK_PUBLISHABLE_KEY. Auth features will be limited.");
+}
+
+/** 
+ * Helper component to sync Clerk userId with our local store 
+ */
+function ClerkSync() {
+  const { userId, isLoaded } = useAuth();
+
+  useEffect(() => {
+    if (isLoaded && userId) {
+      // Direct set state to ensure immediate sync
+      useProfileStore.setState({ playerId: userId });
+    }
+  }, [userId, isLoaded]);
+
+  return null;
+}
 
 function App() {
   const ensurePlayerId = useProfileStore((s) => s.ensurePlayerId);
@@ -54,33 +77,36 @@ function App() {
   const activeEffect = FRAMES[decor.frameId]?.name || 'NONE';
 
   return (
-    <BrowserRouter>
-      <FaceStudyProvider>
-      <main className={`relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100 ${preferences.uiOptimized ? 'ui-optimized' : ''} ${preferences.disableAnimations ? 'no-animations' : ''}`}>
-        <YoutubeMedia />
-        <ThemeBackground cozyPreset={preferences.cozyPreset} />
-        <MotionDiv
-          className="relative z-10 flex min-h-0 flex-1 flex-col"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.38 }}
-        >
-          <div className="flex min-h-screen flex-1">
-            <StudySidebar />
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/study-room" element={<StudyRoomPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-              </Routes>
-            </div>
-          </div>
-        </MotionDiv>
-      </main>
-      </FaceStudyProvider>
-    </BrowserRouter>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
+      <ClerkSync />
+      <BrowserRouter>
+        <FaceStudyProvider>
+          <main className={`relative flex min-h-screen flex-col overflow-x-hidden text-zinc-100 ${preferences.uiOptimized ? 'ui-optimized' : ''} ${preferences.disableAnimations ? 'no-animations' : ''}`}>
+            <YoutubeMedia />
+            <ThemeBackground cozyPreset={preferences.cozyPreset} />
+            <MotionDiv
+              className="relative z-10 flex min-h-0 flex-1 flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.38 }}
+            >
+              <div className="flex min-h-screen flex-1">
+                <StudySidebar />
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/leaderboard" element={<LeaderboardPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/study-room" element={<StudyRoomPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                  </Routes>
+                </div>
+              </div>
+            </MotionDiv>
+          </main>
+        </FaceStudyProvider>
+      </BrowserRouter>
+    </ClerkProvider>
   );
 }
 
