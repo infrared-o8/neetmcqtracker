@@ -16,20 +16,29 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   const debounceRef = useRef(null);
   const [serverOnline, setServerOnline] = useState(false);
   const [lastError, setLastError] = useState("");
+  const [isRateLimited, setIsRateLimited] = useState(false);
+  const cooldownRef = useRef(0);
 
   const apiBase = getApiBase(serverUrl);
   const usingProxy = !apiBase;
 
-  // Crucial: Prioritize Clerk ID to prevent identity mismatches on protected routes
   const activePlayerId = clerkUserId || useProfileStore.getState().playerId;
 
   const checkHealth = useCallback(
     async (urlOverride) => {
+      // Don't even try if we are in a cooldown period
+      if (Date.now() < cooldownRef.current) return { ok: false, error: "Rate limit cooldown active" };
+
       const raw = urlOverride ?? serverUrl;
       const result = await checkServerHealth(raw);
       if (!urlOverride) {
         setServerOnline(result.ok);
-        setLastError(result.ok ? "" : result.error || "Connection failed");
+        if (!result.ok && result.status === 429) {
+          setIsRateLimited(true);
+          cooldownRef.current = Date.now() + 30000; // 30s cooldown
+        } else {
+          setLastError(result.ok ? "" : result.error || "Connection failed");
+        }
       }
       return result;
     },
@@ -37,7 +46,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   );
 
   const register = useCallback(async () => {
-    if (!activePlayerId) return false;
+    if (!activePlayerId || Date.now() < cooldownRef.current) return false;
     try {
       const { displayName, decor } = useProfileStore.getState();
       const token = clerkUserId ? await getToken() : null;
@@ -50,6 +59,13 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         },
         body: JSON.stringify({ playerId: activePlayerId, displayName, decor: decor || DEFAULT_DECOR }),
       });
+
+      if (res.status === 429) {
+        setIsRateLimited(true);
+        cooldownRef.current = Date.now() + 60000; // 1m cooldown
+        return false;
+      }
+
       return res.ok;
     } catch (e) {
       setLastError(e.message);
@@ -58,7 +74,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   }, [serverUrl, getToken, activePlayerId, clerkUserId]);
 
   const pushStats = useCallback(async () => {
-    if (!activePlayerId) return false;
+    if (!activePlayerId || Date.now() < cooldownRef.current) return false;
     try {
       const { displayName: name, decor: d } = useProfileStore.getState();
       const stats = getSnapshot();
@@ -77,7 +93,17 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
           studyMinutes: getSnapshot().studyMinutes ?? 0,
         }),
       });
-      if (res.ok) setLastSyncedAt(Date.now());
+
+      if (res.status === 429) {
+        setIsRateLimited(true);
+        cooldownRef.current = Date.now() + 60000;
+        return false;
+      }
+
+      if (res.ok) {
+        setLastSyncedAt(Date.now());
+        setIsRateLimited(false);
+      }
       return res.ok;
     } catch (e) {
       setLastError(e.message);
@@ -87,12 +113,13 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
 
   const syncNow = useCallback(async () => {
     if (!authLoaded) return { ok: false, reason: "auth-loading" };
+    if (Date.now() < cooldownRef.current) return { ok: false, reason: "rate-limited" };
     
     if (!clerkUserId) ensurePlayerId();
     if (!activePlayerId) return { ok: false, reason: "no-player" };
 
     const health = await checkHealth();
-    if (!health.ok) return { ok: false, reason: "offline" };
+    if (!health.ok) return { ok: false, reason: isRateLimited ? "rate-limited" : "offline" };
 
     try {
       // 1. Initial Handshake: Register and check existing cloud state
@@ -103,19 +130,15 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         const cloudData = await res.json();
         const localStats = getSnapshot();
 
-        // 2. Conflict Resolution: Cloud-Wins-if-Greater
-        // This ensures progress is restored on new devices/browsers
-        const needsPull = 
-          (cloudData.xp > localStats.xp) || 
-          (cloudData.totalSolved > localStats.totalSolved) || 
-          (cloudData.studyMinutes > localStats.studyMinutes);
+        // 2. Authoritative Sync: Use Cloud values if they represent more total effort
+        // This ensures the DB is the source of truth for totals and history
+        const cloudActivity = cloudData.activityTotal || 0;
+        const localActivity = localStats.activityTotal || 0;
 
-        if (needsPull) {
-          console.log("[Sync] Cloud state is ahead. Synchronizing local store...");
+        if (cloudActivity > localActivity || cloudData.totalSolved > localStats.totalSolved) {
+          console.log("[Sync] Restoration triggered. Aligning local state with MongoDB Cloud.");
           
           const currentStore = useTrackerStore.getState();
-          
-          // Merge daily logs (ensure we keep highest progress per day)
           const mergedDailyLogs = { ...currentStore.dailyLogs };
           Object.entries(cloudData.dailyLogs || {}).forEach(([date, count]) => {
             mergedDailyLogs[date] = Math.max(mergedDailyLogs[date] || 0, count);
@@ -139,16 +162,16 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         }
       }
       
-      // 3. Push local changes if they are ahead or equivalent
+      // 3. Push local changes
       const pushed = await pushStats();
-      if (pushed) console.log("[Sync] Handshake successful. Progress secured.");
+      if (pushed) console.log("[Sync] Handshake successful. Cloud profile matched.");
       
       return { ok: pushed, reason: pushed ? null : "sync-failed" };
     } catch (e) {
       setLastError(e.message);
       return { ok: false, reason: "error", error: e.message };
     }
-  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats, getSnapshot, serverUrl]);
+  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats, getSnapshot, serverUrl, isRateLimited]);
 
   const scheduleSync = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
