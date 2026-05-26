@@ -40,6 +40,7 @@ const roomSchema = new mongoose.Schema({
   capacity: { type: Number, default: 20 },
   password: { type: String, default: "" }, // Optional password
   isPasswordProtected: { type: Boolean, default: false },
+  isMicOpen: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 

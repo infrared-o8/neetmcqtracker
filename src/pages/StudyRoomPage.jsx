@@ -3,6 +3,7 @@ import {
   RoomAudioRenderer, 
   useParticipants,
   useTracks,
+  useLocalParticipant
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -29,7 +30,11 @@ import {
   Globe,
   Loader2,
   AlertCircle,
-  LogOut
+  LogOut,
+  Mic,
+  MicOff,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { RollingNumber } from '../components/ui/RollingNumber';
 import { QuickAddControls } from '../components/QuickAddControls';
@@ -52,6 +57,8 @@ export default function StudyRoomPage() {
   const [error, setError] = useState(null);
   const [showBottomStats, setShowStats] = useState(false);
   const [activeRoomId, setActiveRoomId] = useState(null);
+  const [activeRoom, setActiveRoom] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -64,7 +71,8 @@ export default function StudyRoomPage() {
   const profileDisplayName = useProfileStore((s) => s.displayName);
   const profilePlayerId = useProfileStore((s) => s.playerId);
   const serverUrl = useTrackerStore((s) => s.preferences.serverUrl);
-  const { gridTileSize, setGridTileSize } = useLiveRoomStore();
+  const { gridTileSize, setGridTileSize, currentTask, isBreakMode, mirrorVideo } = useLiveRoomStore();
+  const { active } = useFaceStudyContext();
 
   const displayName = profileDisplayName || 'Aspirant';
   const playerId = clerkUserId || profilePlayerId;
@@ -88,8 +96,9 @@ export default function StudyRoomPage() {
     fetchRooms();
   }, [fetchRooms]);
 
-  const joinRoom = useCallback(async (roomId, password = '') => {
+  const joinRoom = useCallback(async (roomData, password = '') => {
     setError(null);
+    const roomId = roomData.roomId;
     try {
       const tokenRes = await apiFetch(serverUrl, '/api/livekit/token', {
         method: 'POST',
@@ -116,6 +125,7 @@ export default function StudyRoomPage() {
       setToken(data.token);
       setLkUrl(data.serverUrl);
       setActiveRoomId(roomId);
+      setActiveRoom(roomData);
       setShowPasswordModal(null);
       setRoomPassword('');
       startCamera();
@@ -149,15 +159,19 @@ export default function StudyRoomPage() {
     setToken(null);
     setLkUrl(null);
     setActiveRoomId(null);
+    setActiveRoom(null);
     stopCamera();
     fetchRooms();
   };
 
   if (activeRoomId && token && lkUrl) {
+    const isGlobal = activeRoomId === 'NEET-Study-Room';
+    const audioEnabled = !isGlobal && activeRoom?.isMicOpen;
+
     return (
       <LiveKitRoom
         video={true}
-        audio={false} 
+        audio={audioEnabled} 
         token={token}
         serverUrl={lkUrl}
         onDisconnected={leaveRoom}
@@ -169,6 +183,9 @@ export default function StudyRoomPage() {
           videoRef={videoRef}
           showBottomStats={showBottomStats}
           setShowStats={setShowStats}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          isMicOpen={audioEnabled}
         />
       </LiveKitRoom>
     );
@@ -266,8 +283,15 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
       className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/5 bg-zinc-900/40 p-6 transition-all hover:border-fuchsia-500/30 hover:bg-zinc-900/60"
     >
       <div className="mb-4 flex items-start justify-between">
-        <div className="rounded-xl bg-white/5 p-2 text-zinc-400 group-hover:text-fuchsia-400 transition-colors">
-          {room.isPasswordProtected ? <Lock className="h-5 w-5" /> : <Globe className="h-5 w-5" />}
+        <div className="flex gap-2">
+          <div className="rounded-xl bg-white/5 p-2 text-zinc-400 group-hover:text-fuchsia-400 transition-colors">
+            {room.isPasswordProtected ? <Lock className="h-5 w-5" /> : <Globe className="h-5 w-5" />}
+          </div>
+          {room.isMicOpen && (
+            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-400">
+              <Mic className="h-5 w-5" />
+            </div>
+          )}
         </div>
         {isCreator && (
           <button 
@@ -289,7 +313,9 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
         </div>
         <div className="flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 border border-white/5">
           <Users className="h-3 w-3 text-cyan-400" />
-          <span className="text-[10px] font-black text-zinc-400">MAX {room.capacity}</span>
+          <span className="text-[10px] font-black text-zinc-400">
+            {room.activeCount ?? 0} / {room.capacity}
+          </span>
         </div>
       </div>
 
@@ -305,7 +331,7 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
 }
 
 function CreateRoomModal({ onClose, onCreated }) {
-  const [formData, setFormData] = useState({ title: '', description: '', capacity: 20, password: '' });
+  const [formData, setFormData] = useState({ title: '', description: '', capacity: 20, password: '', isMicOpen: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { getToken, userId: clerkUserId } = useAuth();
@@ -411,6 +437,26 @@ function CreateRoomModal({ onClose, onCreated }) {
             </div>
           </div>
 
+          {/* Mic Open Toggle */}
+          <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-black/40 p-5">
+            <div className="flex items-center gap-3">
+              <div className={`rounded-xl p-2 ${formData.isMicOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                <Mic className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white">Mic Open Hall</p>
+                <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-tight">Allow aspirants to speak freely</p>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setFormData({ ...formData, isMicOpen: !formData.isMicOpen })}
+              className={`h-6 w-12 rounded-full transition relative ${formData.isMicOpen ? 'bg-fuchsia-600' : 'bg-zinc-800'}`}
+            >
+              <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${formData.isMicOpen ? 'right-1' : 'left-1'}`} />
+            </button>
+          </div>
+
           {error && <p className="text-xs font-bold text-red-400 bg-red-400/10 p-4 rounded-xl">{error}</p>}
 
           <button 
@@ -459,9 +505,41 @@ function PasswordModal({ room, onClose, onJoin }) {
   );
 }
 
-function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) {
+function RoomView({ 
+  roomId, 
+  onLeave, 
+  videoRef, 
+  showBottomStats, 
+  setShowStats,
+  collapsed,
+  onToggleCollapse,
+  isMicOpen
+}) {
   const { onIncrement } = useMicroRewards();
   const { scheduleSync } = useLeaderboardSync();
+  const [streamsLoaded, setStreamsLoaded] = useState(false);
+
+  // Track remote camera tracks specifically
+  const remoteCameraTracks = useTracks(
+    [{ source: Track.Source.Camera, name: 'camera' }],
+    { onlySubscribed: true }
+  ).filter(t => !t.participant.isLocal);
+
+  const allParticipants = useParticipants();
+  const remoteParticipants = allParticipants.filter(p => !p.isLocal);
+  
+  useEffect(() => {
+    if (remoteParticipants.length === 0) {
+      setStreamsLoaded(true);
+      return;
+    }
+    const loadedIds = new Set(remoteCameraTracks.map(t => t.participant.sid));
+    const allLoaded = remoteParticipants.every(p => loadedIds.has(p.sid));
+    if (allLoaded) {
+      const timer = setTimeout(() => setStreamsLoaded(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [remoteParticipants, remoteCameraTracks]);
 
   const totalSolved = useTrackerStore((s) => s.totalSolved);
   const totalPagesRead = useTrackerStore((s) => s.totalPagesRead);
@@ -469,13 +547,12 @@ function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) 
   const dailyPageLogs = useTrackerStore((s) => s.dailyPageLogs);
   const streak = useTrackerStore((s) => s.streak);
   const studyMinutes = useTrackerStore((s) => s.studyMinutes);
-  const mcqTimestamps = useTrackerStore((s) => s.mcqTimestamps);
-  const pageTimestamps = useTrackerStore((s) => s.pageTimestamps);
   const momentumChain = useTrackerStore((s) => s.momentumChain);
   const trackingMode = useTrackerStore((s) => s.trackingMode);
   const addMcq = useTrackerStore((s) => s.addMcq);
   const addPages = useTrackerStore((s) => s.addPages);
-  const { gridTileSize, setGridTileSize } = useLiveRoomStore();
+  const { gridTileSize, setGridTileSize, currentTask, isBreakMode, mirrorVideo } = useLiveRoomStore();
+  const { active } = useFaceStudyContext();
 
   const today = getTodayKey();
   const todaySolved = dailyLogs[today] ?? 0;
@@ -483,8 +560,6 @@ function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) 
   const activityTotal = getActivityTotal(totalSolved, totalPagesRead, studyMinutes);
   const { rank } = getRank(activityTotal);
   const isPages = trackingMode === 'pages';
-  const timestamps = isPages ? pageTimestamps : mcqTimestamps;
-  const currentSpeed = getRollingMcqSpeed(timestamps);
 
   const handleAdd = useCallback(
     (amount = 1) => {
@@ -498,9 +573,51 @@ function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) 
 
   return (
     <>
+      <MetadataSync 
+        task={currentTask} 
+        isBreak={isBreakMode} 
+        rank={rank.label} 
+        isMirrored={mirrorVideo}
+        isCamOff={!active}
+      />
+      <AnimatePresence>
+        {!streamsLoaded && (
+          <motion.div 
+            initial={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-zinc-950"
+          >
+            <div className="relative flex flex-col items-center">
+              <div className="h-16 w-16 animate-spin rounded-full border-4 border-fuchsia-500 border-t-transparent" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Video className="h-6 w-6 text-fuchsia-400 animate-pulse" />
+              </div>
+            </div>
+            <h2 className="mt-8 text-xl font-black uppercase italic tracking-[0.3em] text-white">Synchronizing Streams</h2>
+            <p className="mt-2 text-xs font-bold uppercase tracking-widest text-zinc-500">
+              Connecting to {remoteParticipants.length} remote frequency{remoteParticipants.length !== 1 ? 's' : ''}...
+            </p>
+            <div className="mt-12 flex gap-1">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  animate={{ scaleY: [1, 2, 1], opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
+                  className="h-4 w-1 rounded-full bg-fuchsia-500"
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <video ref={videoRef} className="hidden" playsInline muted />
       <div className="flex h-full flex-1 overflow-hidden relative">
-        <aside className="hidden w-[320px] shrink-0 flex-col border-r border-white/5 bg-zinc-900/20 backdrop-blur-md lg:flex">
+        <motion.aside 
+          initial={false}
+          animate={{ width: collapsed ? 0 : 320, opacity: collapsed ? 0 : 1 }}
+          transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+          className="hidden shrink-0 flex-col border-r border-white/5 bg-zinc-900/20 backdrop-blur-md lg:flex overflow-hidden"
+        >
           <div className="flex-1 overflow-y-auto">
             <RoomSidebarContent />
           </div>
@@ -509,9 +626,17 @@ function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) 
               Exit Hall
             </button>
           </div>
-        </aside>
+        </motion.aside>
 
-        <main className="flex-1 overflow-y-auto pb-24">
+        <main className="flex-1 overflow-y-auto pb-24 relative">
+          {/* Toggle Sidebar Button (Desktop) */}
+          <button 
+            onClick={onToggleCollapse}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-40 hidden lg:flex h-12 w-6 items-center justify-center rounded-r-xl bg-white/5 border border-l-0 border-white/10 text-zinc-500 hover:bg-white/10 hover:text-white transition-all"
+          >
+            {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+          </button>
+
           <div className="p-4 md:p-6 lg:p-8">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -519,7 +644,13 @@ function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) 
                   <LayoutDashboard className="h-5 w-5 text-fuchsia-400" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Active Study Grid</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Active Study Grid</h2>
+                    <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${isMicOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                      {isMicOpen ? <Mic className="h-2 w-2" /> : <MicOff className="h-2 w-2" />}
+                      {isMicOpen ? 'Mic Open' : 'Mic Closed'}
+                    </div>
+                  </div>
                   <p className="text-sm font-bold text-white italic truncate max-w-[150px] sm:max-w-[300px]">{roomId}</p>
                 </div>
               </div>
@@ -551,7 +682,7 @@ function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) 
               </div>
             </div>
             
-            <StudyGrid />
+            <StudyGrid isMicOpen={isMicOpen} />
 
             <div className="mt-12 rounded-[2.5rem] border border-white/5 bg-zinc-900/20 backdrop-blur-md overflow-hidden">
               <button 
@@ -573,7 +704,7 @@ function RoomView({ roomId, onLeave, videoRef, showBottomStats, setShowStats }) 
                       <div className="flex flex-wrap gap-4 flex-1">
                         <StatBox label="Today MCQ" value={todaySolved} color="text-fuchsia-400" icon={<Zap className="h-3 w-3" />} />
                         <StatBox label="Bio Pages" value={todayPages} color="text-cyan-400" icon={<Zap className="h-3 w-3" />} />
-                        <StatBox label="Velocity" value={currentSpeed} color="text-emerald-400" suffix=" /h" icon={<MousePointer2 className="h-3 w-3" />} />
+                        <StatBox label="Velocity" value={activityTotal > 0 ? Math.round(activityTotal / (studyMinutes / 60 || 1)) : 0} color="text-emerald-400" suffix=" /h" icon={<MousePointer2 className="h-3 w-3" />} />
                         <StatBox label="Rank" value={rank.label} color="chroma-text" icon={<Trophy className="h-3 w-3" />} isText />
                         <StatBox label="Streak" value={streak} color="text-orange-400" suffix="d" icon={<Zap className="h-3 w-3" />} />
                         <StatBox label="Activity" value={activityTotal} color="text-indigo-400" icon={<Zap className="h-3 w-3" />} />
@@ -631,10 +762,11 @@ function RoomSidebarContent() {
   return <RoomSidebar participantCount={participants.length} />;
 }
 
-function StudyGrid() {
+function StudyGrid({ isMicOpen }) {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, name: 'camera' },
+      { source: Track.Source.Microphone, name: 'microphone' },
       { source: Track.Source.ScreenShare, name: 'screen_share' },
     ],
     { onlySubscribed: false },
@@ -642,7 +774,20 @@ function StudyGrid() {
 
   const { pinnedUsers, gridTileSize } = useLiveRoomStore();
 
-  const sortedTracks = [...tracks].sort((a, b) => {
+  // Filter to only show one tile per participant (prefer camera)
+  const participantTracks = useMemo(() => {
+    const map = new Map();
+    tracks.forEach(t => {
+      const identity = t.participant.identity;
+      const existing = map.get(identity);
+      if (!existing || (t.source === Track.Source.Camera && existing.source !== Track.Source.Camera)) {
+        map.set(identity, t);
+      }
+    });
+    return Array.from(map.values());
+  }, [tracks]);
+
+  const sortedTracks = participantTracks.sort((a, b) => {
     const aIdentity = a.participant.identity;
     const bIdentity = b.participant.identity;
     if (pinnedUsers.includes(aIdentity) && !pinnedUsers.includes(bIdentity)) return -1;
@@ -661,13 +806,45 @@ function StudyGrid() {
   return (
     <div className={`grid gap-4 ${gridCols[gridTileSize] || gridCols.medium}`}>
       {sortedTracks.map((track) => (
-        <ParticipantTile key={`${track.participant.identity}-${track.source}`} trackRef={track} />
+        <ParticipantTile 
+          key={`${track.participant.identity}-${track.source}`} 
+          trackRef={track} 
+          isMicOpen={isMicOpen}
+        />
       ))}
-      {tracks.length === 0 && (
+      {participantTracks.length === 0 && (
         <div className="col-span-full flex h-64 flex-col items-center justify-center rounded-[3rem] border-2 border-dashed border-white/5 bg-white/5">
           <p className="text-sm font-bold uppercase tracking-widest text-zinc-700 italic">Waiting for Study Collective...</p>
         </div>
       )}
     </div>
   );
+}
+
+/**
+ * MetadataSync: Synchronizes local participant state to LiveKit metadata
+ * so other participants can see "Break Mode", "Current Task", etc.
+ */
+function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff }) {
+  const { localParticipant } = useLocalParticipant();
+
+  useEffect(() => {
+    if (!localParticipant) return;
+
+    const metadata = JSON.stringify({
+      task: task || 'Grinding Modules...',
+      isBreak,
+      rank,
+      isMirrored,
+      isCamOff
+    });
+
+    if (localParticipant.metadata !== metadata) {
+      localParticipant.setMetadata(metadata).catch(err => 
+        console.error("Failed to sync participant metadata:", err)
+      );
+    }
+  }, [localParticipant, task, isBreak, rank, isMirrored, isCamOff]);
+
+  return null;
 }

@@ -1,23 +1,26 @@
 import { 
   useTrackRefContext, 
   VideoTrack, 
+  AudioTrack,
   useParticipantInfo,
   ParticipantContext,
   TrackRefContext,
-  useRoomContext
+  useRoomContext,
+  useIsSpeaking
 } from '@livekit/components-react';
 import { Track, RoomEvent, DataPacket_Kind } from 'livekit-client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Coffee, User, Flame, Zap, Bell } from 'lucide-react';
+import { Pin, Coffee, User, Flame, Zap, Bell, Mic, MicOff } from 'lucide-react';
 import { useLiveRoomStore } from '../../store/useLiveRoomStore';
 import { useTrackerStore } from '../../store/useTrackerStore';
 import { useThock } from '../../hooks/useThock';
 import { useState, useEffect } from 'react';
 
-export function ParticipantTile({ trackRef }) {
+export function ParticipantTile({ trackRef, isMicOpen }) {
   const participant = trackRef.participant;
   const room = useRoomContext();
   const { identity, metadata } = useParticipantInfo({ participant });
+  const isSpeaking = useIsSpeaking(participant);
   const { pinnedUsers, gridTileSize, togglePin } = useLiveRoomStore();
   const preferences = useTrackerStore((s) => s.preferences);
   const { reduceGpuUsage, uiOptimized } = preferences;
@@ -93,7 +96,7 @@ export function ParticipantTile({ trackRef }) {
       layout
       className={`relative aspect-video overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 ${!reduceGpuUsage && !uiOptimized ? 'backdrop-blur-md shadow-lg shadow-black/20' : ''} transition-all duration-500 ${
         isPinned ? 'ring-2 ring-fuchsia-500/50' : ''
-      }`}
+      } ${isSpeaking ? 'ring-2 ring-emerald-500/50' : ''}`}
       onDoubleClick={handlePin}
     >
       {/* Video Content */}
@@ -101,6 +104,10 @@ export function ParticipantTile({ trackRef }) {
         <ParticipantContext.Provider value={participant}>
           <TrackRefContext.Provider value={trackRef}>
             <CustomVideoTrack identity={identity} isLocal={participant.isLocal} isMirrored={isMirrored} isCamOff={isCamOff} />
+            {/* Render audio track for remote participants if mic is open */}
+            {isMicOpen && !participant.isLocal && (
+              <AudioRenderer identity={identity} />
+            )}
           </TrackRefContext.Provider>
         </ParticipantContext.Provider>
       </div>
@@ -137,10 +144,15 @@ export function ParticipantTile({ trackRef }) {
       {/* Top Banner: Username (Rank) */}
       <div className={`absolute ${scale.topGap} left-2 right-2 flex items-center justify-between`}>
         <div className={`flex items-center ${scale.gap} rounded-full bg-black/50 ${scale.banner} ${!reduceGpuUsage ? 'backdrop-blur-md' : ''} border border-white/5`}>
-          <div className={`h-1.5 w-1.5 rounded-full bg-emerald-500 ${!reduceGpuUsage ? 'shadow-[0_0_8px_rgba(16,185,129,0.5)]' : ''}`} />
+          <div className={`h-1.5 w-1.5 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'} ${!reduceGpuUsage && isSpeaking ? 'shadow-[0_0_8px_rgba(52,211,153,0.8)]' : ''}`} />
           <span className={`${scale.text} font-bold text-white/90 uppercase tracking-wider truncate max-w-[80px]`}>
             {identity} <span className="text-zinc-400 font-medium opacity-70">({rank})</span>
           </span>
+          {isMicOpen && (
+            <div className="ml-1 opacity-60">
+              {isSpeaking ? <Mic className={`${scale.icon} text-emerald-400`} /> : <MicOff className={`${scale.icon} text-zinc-600`} />}
+            </div>
+          )}
         </div>
         
         <button 
@@ -191,6 +203,14 @@ export function ParticipantTile({ trackRef }) {
       </AnimatePresence>
     </motion.div>
   );
+}
+
+function AudioRenderer({ identity }) {
+  const tracks = useTracks([{ source: Track.Source.Microphone }], { onlySubscribed: true });
+  const micTrack = tracks.find(t => t.participant.identity === identity);
+  
+  if (!micTrack) return null;
+  return <AudioTrack trackRef={micTrack} />;
 }
 
 function CustomVideoTrack({ identity, isLocal, isMirrored, isCamOff }) {

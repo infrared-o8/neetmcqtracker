@@ -36,26 +36,14 @@ export function RoomSidebar({ participantCount = 0 }) {
   const [taskDraft, setTaskDraft] = useState(currentTask);
   const [showSettings, setShowSettings] = useState(false);
 
-  const updateMetadata = () => {
-    if (!localParticipant || room.state !== ConnectionState.Connected) return;
-    try {
-      const metadata = JSON.stringify({
-        task: taskDraft,
-        isBreak: isBreakMode,
-        isMirrored: mirrorVideo,
-        isCamOff: isCamOff,
-        rank: 'Elite Aspirant'
-      });
-      localParticipant.setMetadata(metadata);
-      setCurrentTask(taskDraft);
-    } catch (e) {
-      console.warn('Failed to update metadata:', e);
-    }
-  };
-
+  // Keep draft in sync with store if store changes externally
   useEffect(() => {
-    updateMetadata();
-  }, [isBreakMode, mirrorVideo, isCamOff]);
+    setTaskDraft(currentTask);
+  }, [currentTask]);
+
+  const commitTask = () => {
+    setCurrentTask(taskDraft);
+  };
 
   return (
     <div className="flex w-full flex-col gap-6 p-4 pb-20">
@@ -81,12 +69,12 @@ export function RoomSidebar({ participantCount = 0 }) {
             type="text"
             value={taskDraft}
             onChange={(e) => setTaskDraft(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && updateMetadata()}
+            onKeyDown={(e) => e.key === 'Enter' && commitTask()}
             placeholder="What are you solving?..."
             className="w-full rounded-xl border border-white/5 bg-zinc-900/60 px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none ring-fuchsia-500/30 transition focus:ring-2"
           />
           <button 
-            onClick={updateMetadata}
+            onClick={commitTask}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-400 opacity-0 group-focus-within:opacity-100 transition hover:bg-fuchsia-500/40"
           >
             <Send className="h-4 w-4" />

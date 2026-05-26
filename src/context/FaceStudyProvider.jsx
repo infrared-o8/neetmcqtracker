@@ -40,7 +40,7 @@ export function FaceStudyProvider({ children }) {
   const stopCamera = useCallback(() => {
     // Kill the heartbeat
     if (tickRef.current) {
-      clearInterval(tickRef.current);
+      clearTimeout(tickRef.current);
       tickRef.current = null;
     }
 
@@ -61,6 +61,68 @@ export function FaceStudyProvider({ children }) {
     isInitializingRef.current = false;
   }, []);
 
+  const runDetectionCycle = useCallback(async () => {
+    const video = videoRef.current;
+    const faceModel = faceModelRef.current;
+    const objectModel = objectModelRef.current;
+
+    // Guard: Stop if component unmounted or camera stopped
+    if (!active || !video || !faceModel || !objectModel) return;
+
+    const detectionInterval = 
+      preferences.aiDetectionRate === "power-save" ? 3000 : 
+      preferences.aiDetectionRate === "ultra-low" ? 5000 : 1000;
+
+    // If video is paused or not ready, wait and retry
+    if (video.readyState < 2 || video.paused) {
+      tickRef.current = setTimeout(runDetectionCycle, 500);
+      return;
+    }
+
+    try {
+      const [faces, objects] = await Promise.all([
+        faceModel.estimateFaces(video, false),
+        objectModel.detect(video),
+      ]);
+
+      const bestFace = faces.length > 0 ? Math.max(...faces.map(p => {
+        const prob = p.probability;
+        return typeof prob === "number" ? prob : (Array.isArray(prob) ? prob[0] ?? 0 : 0);
+      })) : 0;
+      
+      setConfidence(bestFace);
+      const hasFace = bestFace >= FACE_THRESHOLD;
+      setFaceDetected(hasFace);
+
+      const hasPhone = objects.some(obj => obj.class === "cell phone" && obj.score > 0.5);
+      setPhoneDetected(hasPhone);
+
+      if (hasFace && !hasPhone) {
+        const increment = detectionInterval / 1000;
+        consecutiveRef.current += increment;
+        setSecondsTowardMinute(Math.floor(consecutiveRef.current));
+        if (consecutiveRef.current >= SECONDS_PER_MINUTE) {
+          addStudyMinute();
+          useTrackerStore.setState((s) => ({ xp: s.xp + 1 }));
+          triggerMinuteReward();
+          consecutiveRef.current = 0;
+          setSecondsTowardMinute(0);
+        }
+      } else if (hasPhone) {
+        const penalty = (detectionInterval / 1000) * 2;
+        consecutiveRef.current = Math.max(0, consecutiveRef.current - penalty);
+        setSecondsTowardMinute(Math.floor(consecutiveRef.current));
+      }
+    } catch (err) {
+      console.error("Detection error cycle:", err);
+    } finally {
+      // Schedule next cycle ONLY after this one completes
+      if (active) {
+        tickRef.current = setTimeout(runDetectionCycle, detectionInterval);
+      }
+    }
+  }, [active, preferences.aiDetectionRate, addStudyMinute, triggerMinuteReward]);
+
   const startCamera = useCallback(async () => {
     // Guard: Prevent double-loading or re-entering while already active
     if (active || isInitializingRef.current) return;
@@ -71,7 +133,6 @@ export function FaceStudyProvider({ children }) {
 
     try {
       // Step 1: Initialize Models (Lazy-load & Non-blocking)
-      // This is the CPU-intensive part. We use a micro-task delay to keep UI responsive.
       await new Promise(r => setTimeout(r, 50));
       
       if (!faceModelRef.current) {
@@ -108,8 +169,7 @@ export function FaceStudyProvider({ children }) {
       setActive(true);
       setLoading(false);
       isInitializingRef.current = false;
-      startDetectionLoop();
-
+      // startDetectionLoop will be triggered by useEffect [active]
     } catch (e) {
       console.error("AI Context Init Failure:", e);
       setError(e.message || "Hardware access denied.");
@@ -117,60 +177,16 @@ export function FaceStudyProvider({ children }) {
       setLoading(false);
       isInitializingRef.current = false;
     }
-  }, [active, stopCamera, preferences.aiDetectionRate]);
+  }, [active, stopCamera]);
 
-  const startDetectionLoop = useCallback(() => {
-    if (tickRef.current) clearInterval(tickRef.current);
-
-    const detectionInterval = 
-      preferences.aiDetectionRate === "power-save" ? 3000 : 
-      preferences.aiDetectionRate === "ultra-low" ? 5000 : 1000;
-
-    tickRef.current = setInterval(async () => {
-      const video = videoRef.current;
-      const faceModel = faceModelRef.current;
-      const objectModel = objectModelRef.current;
-      if (!video || !faceModel || !objectModel || video.readyState < 2) return;
-
-      try {
-        const [faces, objects] = await Promise.all([
-          faceModel.estimateFaces(video, false),
-          objectModel.detect(video),
-        ]);
-
-        const bestFace = faces.length > 0 ? Math.max(...faces.map(p => {
-          const prob = p.probability;
-          return typeof prob === "number" ? prob : (Array.isArray(prob) ? prob[0] ?? 0 : 0);
-        })) : 0;
-        
-        setConfidence(bestFace);
-        const hasFace = bestFace >= FACE_THRESHOLD;
-        setFaceDetected(hasFace);
-
-        const hasPhone = objects.some(obj => obj.class === "cell phone" && obj.score > 0.5);
-        setPhoneDetected(hasPhone);
-
-        if (hasFace && !hasPhone) {
-          const increment = detectionInterval / 1000;
-          consecutiveRef.current += increment;
-          setSecondsTowardMinute(Math.floor(consecutiveRef.current));
-          if (consecutiveRef.current >= SECONDS_PER_MINUTE) {
-            addStudyMinute();
-            useTrackerStore.setState((s) => ({ xp: s.xp + 1 }));
-            triggerMinuteReward();
-            consecutiveRef.current = 0;
-            setSecondsTowardMinute(0);
-          }
-        } else if (hasPhone) {
-          const penalty = (detectionInterval / 1000) * 2;
-          consecutiveRef.current = Math.max(0, consecutiveRef.current - penalty);
-          setSecondsTowardMinute(Math.floor(consecutiveRef.current));
-        }
-      } catch (err) {
-        console.error("Detection error:", err);
-      }
-    }, detectionInterval);
-  }, [addStudyMinute, triggerMinuteReward, preferences.aiDetectionRate]);
+  useEffect(() => {
+    if (active) {
+      runDetectionCycle();
+    }
+    return () => {
+      if (tickRef.current) clearTimeout(tickRef.current);
+    };
+  }, [active, runDetectionCycle]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 

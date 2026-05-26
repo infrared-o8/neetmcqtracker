@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import rateLimit from "express-rate-limit";
 import { ClerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
 import { connectDB, db, getLeaderboard, getPlayer, updateStats, upsertPlayer, Room } from "./db.js";
@@ -15,6 +15,9 @@ const PORT = process.env.PORT || 3847;
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "devkey";
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || "secret";
 const LIVEKIT_URL = process.env.VITE_LIVEKIT_URL || "";
+
+// Room service for metadata and management
+const svc = new RoomServiceClient(LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
 
 const app = express();
 
@@ -182,25 +185,39 @@ app.post("/api/livekit/token", async (req, res) => {
 app.get("/api/rooms", async (req, res) => {
   try {
     const rooms = await Room.find({}).sort({ createdAt: -1 }).lean();
-    // Don't send passwords to client
-    const safeRooms = rooms.map(r => ({
-      roomId: r.roomId,
-      title: r.title,
-      description: r.description,
-      creatorId: r.creatorId,
-      creatorName: r.creatorName,
-      capacity: r.capacity,
-      isPasswordProtected: r.isPasswordProtected,
-      createdAt: r.createdAt
+    
+    // Enrich with live participant counts from LiveKit
+    const enrichedRooms = await Promise.all(rooms.map(async (r) => {
+      let activeCount = 0;
+      try {
+        const participants = await svc.listParticipants(r.roomId);
+        activeCount = participants.length;
+      } catch {
+        // Room might not exist in LiveKit yet (no one in it)
+      }
+
+      return {
+        roomId: r.roomId,
+        title: r.title,
+        description: r.description,
+        creatorId: r.creatorId,
+        creatorName: r.creatorName,
+        capacity: r.capacity,
+        activeCount,
+        isPasswordProtected: r.isPasswordProtected,
+        isMicOpen: r.isMicOpen,
+        createdAt: r.createdAt
+      };
     }));
-    res.json({ rooms: safeRooms });
+
+    res.json({ rooms: enrichedRooms });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 app.post("/api/rooms", authMiddleware, async (req, res) => {
-  const { title, description, capacity, password, creatorId, creatorName } = req.body;
+  const { title, description, capacity, password, creatorId, creatorName, isMicOpen } = req.body;
   if (!title || !creatorId || !creatorName) {
     return res.status(400).json({ error: "Missing required fields" });
   }
@@ -225,6 +242,7 @@ app.post("/api/rooms", authMiddleware, async (req, res) => {
       capacity: Math.min(Math.max(Number(capacity) || 20, 2), 50),
       password: password || "",
       isPasswordProtected: !!password,
+      isMicOpen: !!isMicOpen,
       creatorId,
       creatorName
     });
@@ -249,7 +267,17 @@ app.delete("/api/rooms/:roomId", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
+    // 1. Delete from MongoDB
     await Room.deleteOne({ roomId });
+
+    // 2. Forcibly close in LiveKit (disconnects everyone)
+    try {
+      await svc.deleteRoom(roomId);
+    } catch (lkErr) {
+      // Might already be empty/deleted in LK
+      console.warn(`LiveKit room deletion skipped: ${lkErr.message}`);
+    }
+
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
