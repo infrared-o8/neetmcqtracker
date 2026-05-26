@@ -81,7 +81,12 @@ export async function upsertPlayer({ playerId, displayName, decor }) {
     await User.findOneAndUpdate(
       { playerId },
       { $set: updatePayload },
-      { upsert: true, new: true }
+      { 
+        upsert: true, 
+        new: true,
+        setDefaultsOnInsert: true,
+        runValidators: true
+      }
     );
   } catch (e) {
     console.error("Upsert Player Error:", e);
@@ -94,26 +99,37 @@ export async function updateStats(playerId, stats) {
     if (!user) return false;
     
     // Auth-Protection: Never allow cumulative totals to decrease
-    // This prevents "unhydrated" local state (zeros) from wiping cloud data
-    user.xp = Math.max(user.xp || 0, Number(stats.xp) || 0);
-    user.totalSolved = Math.max(user.totalSolved || 0, Number(stats.totalSolved) || 0);
-    user.totalPagesRead = Math.max(user.totalPagesRead || 0, Number(stats.totalPagesRead) || 0);
-    user.studyMinutes = Math.max(user.studyMinutes || 0, Number(stats.studyMinutes) || 0);
-    
-    // Status/Label updates: Take latest
-    if (stats.level !== undefined) user.level = stats.level;
-    if (stats.streak !== undefined) user.streak = stats.streak;
-    if (stats.bestStreak !== undefined) user.bestStreak = stats.bestStreak;
-    if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel;
+    const safeNum = (val, fallback = 0) => {
+      const n = Number(val);
+      return isNaN(n) ? fallback : n;
+    };
 
-    // Recalculate activityTotal explicitly to be safe
+    const oldSolved = safeNum(user.totalSolved);
+    const newSolved = safeNum(stats.totalSolved);
+
+    user.xp = Math.max(safeNum(user.xp), safeNum(stats.xp));
+    user.totalSolved = Math.max(oldSolved, newSolved);
+    user.totalPagesRead = Math.max(safeNum(user.totalPagesRead), safeNum(stats.totalPagesRead));
+    user.studyMinutes = Math.max(safeNum(user.studyMinutes), safeNum(stats.studyMinutes));
+    
+    if (newSolved > oldSolved) {
+      console.log(`[Stats] Player ${playerId} progressed: ${oldSolved} -> ${newSolved} MCQs`);
+    }
+
+    // Status/Label updates: Take latest
+    if (stats.level !== undefined) user.level = safeNum(stats.level, 1);
+    if (stats.streak !== undefined) user.streak = safeNum(stats.streak);
+    if (stats.bestStreak !== undefined) user.bestStreak = safeNum(stats.bestStreak);
+    if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel || "Aspirant";
+
+    // Recalculate activityTotal
     user.activityTotal = user.totalSolved + user.totalPagesRead + (user.studyMinutes * 0.5);
 
-    // Persist Granular Logs for Heatmap/Today views
+    // Persist Granular Logs
     if (stats.dailyLogs && typeof stats.dailyLogs === "object") {
       const merged = { ...(user.dailyLogs || {}) };
       Object.entries(stats.dailyLogs).forEach(([date, count]) => {
-        merged[date] = Math.max(merged[date] || 0, count);
+        merged[date] = Math.max(safeNum(merged[date]), safeNum(count));
       });
       user.dailyLogs = merged;
       user.markModified("dailyLogs");
@@ -122,7 +138,7 @@ export async function updateStats(playerId, stats) {
     if (stats.dailyPageLogs && typeof stats.dailyPageLogs === "object") {
       const merged = { ...(user.dailyPageLogs || {}) };
       Object.entries(stats.dailyPageLogs).forEach(([date, count]) => {
-        merged[date] = Math.max(merged[date] || 0, count);
+        merged[date] = Math.max(safeNum(merged[date]), safeNum(count));
       });
       user.dailyPageLogs = merged;
       user.markModified("dailyPageLogs");
@@ -142,19 +158,19 @@ export async function getPlayer(playerId) {
     if (!user) return null;
     return {
       playerId: user.playerId,
-      displayName: user.displayName,
-      decor: user.decor,
-      xp: user.xp,
-      level: user.level,
-      totalSolved: user.totalSolved,
-      totalPagesRead: user.totalPagesRead,
+      displayName: user.displayName || "Aspirant",
+      decor: user.decor || {},
+      xp: user.xp || 0,
+      level: user.level || 1,
+      totalSolved: user.totalSolved || 0,
+      totalPagesRead: user.totalPagesRead || 0,
       dailyLogs: user.dailyLogs || {},
       dailyPageLogs: user.dailyPageLogs || {},
-      activityTotal: user.activityTotal,
-      streak: user.streak,
-      bestStreak: user.bestStreak,
-      rankLabel: user.rankLabel,
-      studyMinutes: user.studyMinutes,
+      activityTotal: user.activityTotal || 0,
+      streak: user.streak || 0,
+      bestStreak: user.bestStreak || 0,
+      rankLabel: user.rankLabel || "Beginner",
+      studyMinutes: user.studyMinutes || 0,
       updatedAt: user.updatedAt
     };
   } catch (e) {
@@ -173,17 +189,17 @@ export async function getLeaderboard(sort = "activity") {
     return users.map((u, i) => ({
       rank: i + 1,
       playerId: u.playerId,
-      displayName: u.displayName,
-      decor: u.decor,
-      xp: u.xp,
-      level: u.level,
-      totalSolved: u.totalSolved,
-      totalPagesRead: u.totalPagesRead,
-      activityTotal: u.activityTotal,
-      streak: u.streak,
-      bestStreak: u.bestStreak,
-      rankLabel: u.rankLabel,
-      studyMinutes: u.studyMinutes,
+      displayName: u.displayName || "Aspirant",
+      decor: u.decor || {},
+      xp: u.xp || 0,
+      level: u.level || 1,
+      totalSolved: u.totalSolved || 0,
+      totalPagesRead: u.totalPagesRead || 0,
+      activityTotal: u.activityTotal || 0,
+      streak: u.streak || 0,
+      bestStreak: u.bestStreak || 0,
+      rankLabel: u.rankLabel || "Beginner",
+      studyMinutes: u.studyMinutes || 0,
       updatedAt: u.updatedAt
     }));
   } catch (e) {

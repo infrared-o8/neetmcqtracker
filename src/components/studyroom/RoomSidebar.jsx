@@ -9,7 +9,9 @@ import {
   Users,
   Settings2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { useLiveRoomStore } from '../../store/useLiveRoomStore';
 import { useState, useEffect } from 'react';
@@ -35,6 +37,21 @@ export function RoomSidebar({ participantCount = 0 }) {
   const room = useRoomContext();
   const [taskDraft, setTaskDraft] = useState(currentTask);
   const [showSettings, setShowSettings] = useState(false);
+  const [isMuted, setIsMuted] = useState(!localParticipant?.isMicrophoneEnabled);
+
+  // Sync mute state with localParticipant
+  useEffect(() => {
+    if (localParticipant) {
+      setIsMuted(!localParticipant.isMicrophoneEnabled);
+    }
+  }, [localParticipant?.isMicrophoneEnabled]);
+
+  const toggleMic = async () => {
+    if (!localParticipant) return;
+    const nextState = isMuted; // If currently muted, we want to enable (nextState = true)
+    await localParticipant.setMicrophoneEnabled(nextState);
+    setIsMuted(!nextState);
+  };
 
   // Keep draft in sync with store if store changes externally
   useEffect(() => {
@@ -99,6 +116,17 @@ export function RoomSidebar({ participantCount = 0 }) {
           icon={Coffee}
           label="Break Mode"
         />
+        {room && (
+          <div className="col-span-2">
+            <ToggleButton 
+              active={!isMuted} 
+              onClick={toggleMic}
+              icon={isMuted ? MicOff : Mic}
+              label={isMuted ? "Mic Muted" : "Mic Live"}
+              className="w-full flex-row gap-4 py-3"
+            />
+          </div>
+        )}
       </div>
 
       {/* Settings Deck - Collapsible */}
@@ -165,15 +193,15 @@ export function RoomSidebar({ participantCount = 0 }) {
   );
 }
 
-function ToggleButton({ active, onClick, icon: Icon, label }) {
+function ToggleButton({ active, onClick, icon: Icon, label, className = "" }) {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-2 rounded-xl border py-4 transition ${
+      className={`flex flex-col items-center justify-center gap-2 rounded-xl border py-4 transition ${
         active 
           ? 'bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-100' 
           : 'bg-zinc-900/40 border-white/5 text-zinc-500 hover:text-zinc-300'
-      }`}
+      } ${className}`}
     >
       <Icon className="h-5 w-5" />
       <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>

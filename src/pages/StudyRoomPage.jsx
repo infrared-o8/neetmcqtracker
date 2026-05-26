@@ -765,8 +765,10 @@ function StatBox({ label, value, color, icon, suffix = "", isText = false }) {
 }
 
 function RoomSidebarContent() {
-  const participants = useParticipants();
-  return <RoomSidebar participantCount={participants.length} />;
+  const { localParticipant } = useLocalParticipant();
+  const remoteParticipants = useParticipants();
+  const count = (localParticipant ? 1 : 0) + remoteParticipants.length;
+  return <RoomSidebar participantCount={count} />;
 }
 
 function StudyGrid({ isMicOpen }) {

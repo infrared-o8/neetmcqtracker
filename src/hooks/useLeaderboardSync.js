@@ -87,7 +87,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     if (!activePlayerId || Date.now() < cooldownRef.current) return false;
     try {
       const { displayName: name, decor: d } = useProfileStore.getState();
-      const stats = getSnapshot();
+      const stats = getSnapshot(); 
       const token = clerkUserId ? await getToken() : null;
 
       const res = await apiFetch(serverUrl, `/api/players/${activePlayerId}/stats`, {
@@ -97,25 +97,40 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
-          ...stats,
+          totalSolved: stats.totalSolved || 0,
+          totalPagesRead: stats.totalPagesRead || 0,
+          studyMinutes: stats.studyMinutes || 0,
+          xp: stats.xp || 0,
+          level: stats.level || 1,
+          streak: stats.streak || 0,
+          bestStreak: stats.bestStreak || 0,
+          rankLabel: stats.rankLabel || "Aspirant",
+          dailyLogs: stats.dailyLogs || {},
+          dailyPageLogs: stats.dailyPageLogs || {},
           displayName: name,
           decor: d,
-          studyMinutes: getSnapshot().studyMinutes ?? 0,
         }),
       });
 
       if (res.status === 429) {
+        console.warn("[Sync] Rate limited (429) during stats push.");
         setIsRateLimited(true);
         cooldownRef.current = Date.now() + 60000;
         return false;
       }
 
-      if (res.ok) {
-        setLastSyncedAt(Date.now());
-        setIsRateLimited(false);
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[Sync] Stats push failed (${res.status}):`, errText);
+        setLastError(`Sync failed (${res.status})`);
+        return false;
       }
-      return res.ok;
+
+      setLastSyncedAt(Date.now());
+      setIsRateLimited(false);
+      return true;
     } catch (e) {
+      console.error("[Sync] Network error during push:", e);
       setLastError(e.message);
       return false;
     }
@@ -141,11 +156,10 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         const localStats = getSnapshot();
 
         // 2. Authoritative Sync: Use Cloud values if they represent more total effort
-        // This ensures the DB is the source of truth for totals and history
         const cloudActivity = cloudData.activityTotal || 0;
         const localActivity = localStats.activityTotal || 0;
 
-        if (cloudActivity > localActivity || cloudData.totalSolved > localStats.totalSolved) {
+        if (cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0)) {
           console.log("[Sync] Restoration triggered. Aligning local state with MongoDB Cloud.");
           
           const currentStore = useTrackerStore.getState();
@@ -160,12 +174,12 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
           });
 
           useTrackerStore.setState({
-            xp: Math.max(localStats.xp, cloudData.xp || 0),
-            totalSolved: Math.max(localStats.totalSolved, cloudData.totalSolved || 0),
-            totalPagesRead: Math.max(localStats.totalPagesRead, cloudData.totalPagesRead || 0),
-            studyMinutes: Math.max(localStats.studyMinutes, cloudData.studyMinutes || 0),
-            streak: Math.max(currentStore.streak, cloudData.streak || 0),
-            bestStreak: Math.max(currentStore.bestStreak, cloudData.bestStreak || 0),
+            xp: Math.max(localStats.xp || 0, cloudData.xp || 0),
+            totalSolved: Math.max(localStats.totalSolved || 0, cloudData.totalSolved || 0),
+            totalPagesRead: Math.max(localStats.totalPagesRead || 0, cloudData.totalPagesRead || 0),
+            studyMinutes: Math.max(localStats.studyMinutes || 0, cloudData.studyMinutes || 0),
+            streak: Math.max(currentStore.streak || 0, cloudData.streak || 0),
+            bestStreak: Math.max(currentStore.bestStreak || 0, cloudData.bestStreak || 0),
             dailyLogs: mergedDailyLogs,
             dailyPageLogs: mergedDailyPageLogs,
           });
@@ -174,10 +188,15 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       
       // 3. Push local changes
       const pushed = await pushStats();
-      if (pushed) console.log("[Sync] Handshake successful. Cloud profile matched.");
+      if (pushed) {
+        console.log("[Sync] Handshake successful. Cloud profile matched.");
+      } else {
+        console.warn("[Sync] Handshake completed but stats push was unsuccessful.");
+      }
       
       return { ok: pushed, reason: pushed ? null : "sync-failed" };
     } catch (e) {
+      console.error("[Sync] Critical sync error:", e);
       setLastError(e.message);
       return { ok: false, reason: "error", error: e.message };
     }

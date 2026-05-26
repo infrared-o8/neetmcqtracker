@@ -107,6 +107,10 @@ function antiCheatMiddleware(req, res, next) {
     const mcqDelta = Math.max(0, incomingSolved - prevSolved);
     const pagesDelta = Math.max(0, incomingPages - prevPages);
     
+    if (mcqDelta > 0 || pagesDelta > 0) {
+      console.log(`[Anti-Cheat] Progress detected for ${playerId}: +${mcqDelta} MCQs, +${pagesDelta} Pages`);
+    }
+
     if (!isInitialSync && (mcqDelta > 0 || pagesDelta > 0)) {
       tracker.mcqLogs = tracker.mcqLogs.filter(log => now - log.time <= ONE_MINUTE);
       tracker.pageLogs = tracker.pageLogs.filter(log => now - log.time <= ONE_MINUTE);
