@@ -54,10 +54,10 @@ export function LeaderboardTable({ players, selfPlayerId, liveFlash }) {
               <th className="px-3 py-3 text-center">#</th>
               <th className="px-3 py-3">Player</th>
               <th className="px-3 py-3 text-right">Activity</th>
-              <th className="px-3 py-3 text-right">MCQs</th>
-              <th className="px-3 py-3 text-right">Pages</th>
-              <th className="hidden px-3 py-3 text-right sm:table-cell">Streak</th>
-              <th className="px-3 py-3 text-right">Study</th>
+              <th className="hidden sm:table-cell px-3 py-3 text-right">MCQs</th>
+              <th className="hidden sm:table-cell px-3 py-3 text-right">Pages</th>
+              <th className="hidden lg:table-cell px-3 py-3 text-right">Streak</th>
+              <th className="hidden sm:table-cell px-3 py-3 text-right">Study</th>
             </tr>
           </thead>
           <tbody>

@@ -83,6 +83,20 @@ const DEFAULT_LAYOUTS = {
     { i: "ladder", x: 0, y: 49, w: 10, h: 8 },
     { i: "chart", x: 0, y: 57, w: 10, h: 10 },
   ],
+  sm: [
+    { i: "focus", x: 0, y: 0, w: 6, h: 10 },
+    { i: "today", x: 0, y: 10, w: 6, h: 8 },
+    { i: "total", x: 0, y: 18, w: 3, h: 4 },
+    { i: "streak", x: 3, y: 18, w: 3, h: 4 },
+    { i: "rank", x: 0, y: 22, w: 6, h: 6 },
+    { i: "goal", x: 0, y: 28, w: 3, h: 4 },
+    { i: "speed", x: 3, y: 28, w: 3, h: 4 },
+    { i: "camera", x: 0, y: 32, w: 6, h: 12 },
+    { i: "heatmap", x: 0, y: 44, w: 6, h: 12 },
+    { i: "ladder", x: 0, y: 56, w: 6, h: 8 },
+    { i: "chart", x: 0, y: 64, w: 6, h: 10 },
+    { i: "quick", x: 0, y: 74, w: 6, h: 0 },
+  ],
 };
 
 export function BentoDashboard() {
@@ -308,6 +322,7 @@ export function BentoDashboard() {
           draggableHandle=".drag-handle"
           resizeHandles={['s', 'w', 'e', 'n', 'sw', 'nw', 'se', 'ne']}
           margin={[16, 16]}
+          containerPadding={{ lg: [20, 20], md: [20, 20], sm: [10, 10], xs: [10, 10], xxs: [10, 10] }}
           useCSSTransforms={false}
         >
           <div key="focus">
@@ -336,9 +351,10 @@ export function BentoDashboard() {
                   <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
                     Today · {isPages ? "Pages" : "MCQs"}
                   </p>
-                  <p className="mt-2 text-5xl font-semibold text-white">
+                  <p className="mt-2 text-4xl md:text-5xl font-semibold text-white">
                     <RollingNumber value={todayCount} />
                   </p>
+
                   {isCombo && (
                     <span className="combo-badge mt-2 inline-block">Combo ×{Math.min(momentumChain, 99)}</span>
                   )}

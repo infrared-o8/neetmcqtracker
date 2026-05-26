@@ -66,16 +66,16 @@ export function LeaderboardRow({
       <td className="px-3 py-3 text-right tabular-nums text-sm font-bold text-white">
         {player.activityTotal?.toLocaleString() ?? 0}
       </td>
-      <td className="px-3 py-3 text-right tabular-nums text-sm font-semibold text-cyan-200">
+      <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-sm font-semibold text-cyan-200">
         {player.totalSolved?.toLocaleString() ?? 0}
       </td>
-      <td className="px-3 py-3 text-right tabular-nums text-sm font-semibold text-violet-200">
+      <td className="hidden sm:table-cell px-3 py-3 text-right tabular-nums text-sm font-semibold text-violet-200">
         {player.totalPagesRead?.toLocaleString() ?? 0}
       </td>
-      <td className="hidden px-3 py-3 text-right text-sm text-zinc-400 sm:table-cell">
+      <td className="hidden lg:table-cell px-3 py-3 text-right text-sm text-zinc-400">
         {player.streak}d
       </td>
-      <td className="px-3 py-3 text-right text-sm font-semibold tabular-nums text-emerald-300/90">
+      <td className="hidden sm:table-cell px-3 py-3 text-right text-sm font-semibold tabular-nums text-emerald-300/90">
         {Number(player.studyMinutes ?? 0)}m
       </td>
     </tr>

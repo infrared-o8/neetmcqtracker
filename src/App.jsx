@@ -19,6 +19,7 @@ import { FRAMES } from "./data/profileDecor";
 
 import { FaceStudyTopBar } from "./components/study/FaceStudyTopBar";
 import { useMicroRewards } from "./hooks/useMicroRewards";
+import { MobileNav } from "./components/ui/MobileNav";
 
 const MotionDiv = motion.div;
 
@@ -90,9 +91,11 @@ function App() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.38 }}
             >
-              <div className="flex min-h-screen flex-1">
-                <StudySidebar />
-                <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="flex min-h-screen flex-1 relative overflow-hidden">
+                <div className="hidden md:flex h-full shrink-0">
+                  <StudySidebar />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pb-16 md:pb-0 scroll-smooth">
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/leaderboard" element={<LeaderboardPage />} />
@@ -101,6 +104,7 @@ function App() {
                     <Route path="/settings" element={<SettingsPage />} />
                   </Routes>
                 </div>
+                <MobileNav />
               </div>
             </MotionDiv>
           </main>

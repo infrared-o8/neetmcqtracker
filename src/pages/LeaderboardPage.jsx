@@ -25,7 +25,10 @@ export function LeaderboardPage() {
   const [isCached, setIsCached] = useState(true);
   const [error, setError] = useState("");
   const [liveFlash, setLiveFlash] = useState(false);
+  const [syncCooldown, setSyncCooldown] = useState(0);
   const prevSnapshot = useRef("");
+  const cooldownTimerRef = useRef(null);
+
   const playerId = useProfileStore((s) => s.playerId);
   const localStudyMinutes = useTrackerStore((s) => s.studyMinutes);
   const localTotalSolved = useTrackerStore((s) => s.totalSolved);
@@ -39,7 +42,43 @@ export function LeaderboardPage() {
     connected,
     checkHealth,
     lastError,
-  } = useLeaderboardSync({ enabled: true, pollInterval: 30000 }); // Slower poll for free tier
+    isRateLimited
+  } = useLeaderboardSync({ enabled: true, pollInterval: 30000 });
+
+  const handleForceSync = useCallback(async () => {
+    if (syncCooldown > 0) return;
+    
+    setLoading(true);
+    const result = await syncNow();
+    
+    if (result.ok) {
+      // Start 60s cooldown
+      setSyncCooldown(60);
+      cooldownTimerRef.current = setInterval(() => {
+        setSyncCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(cooldownTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      // Refresh leaderboard after successful sync
+      const list = await fetchLeaderboard(sort);
+      const enriched = enrichLeaderboardPlayers(list, playerId, {
+        studyMinutes: localStudyMinutes,
+        totalSolved: localTotalSolved,
+        totalPagesRead: localTotalPagesRead,
+      });
+      setPlayers(enriched);
+      setIsCached(false);
+      localStorage.setItem(CACHE_KEY, JSON.stringify(enriched));
+    } else {
+      setError(result.error || result.reason === "rate-limited" ? "Sync cooling down... please wait." : "Sync handshake failed.");
+    }
+    setLoading(false);
+  }, [syncNow, fetchLeaderboard, sort, playerId, localStudyMinutes, localTotalSolved, localTotalPagesRead, syncCooldown]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,6 +181,28 @@ export function LeaderboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleForceSync}
+            disabled={loading || syncCooldown > 0}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition-all ${
+              syncCooldown > 0 
+                ? "bg-zinc-800 text-zinc-500 border border-white/5 cursor-not-allowed" 
+                : "bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-500/20 hover:bg-fuchsia-500 active:scale-95"
+            }`}
+          >
+            {syncCooldown > 0 ? (
+              <>
+                <Clock className="h-3.5 w-3.5" />
+                Wait {syncCooldown}s
+              </>
+            ) : (
+              <>
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                Force Cloud Sync
+              </>
+            )}
+          </button>
           <button
             type="button"
             onClick={load}
