@@ -76,10 +76,16 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     if (!playerId) return { ok: false, reason: "no-player" };
 
     const health = await checkHealth();
-    if (!health.ok) return { ok: false, reason: "offline", error: health.error };
+    if (!health.ok) {
+      console.warn("[Sync] Network offline. Changes queued locally.");
+      return { ok: false, reason: "offline", error: health.error };
+    }
 
     await register();
     const pushed = await pushStats();
+    if (pushed) {
+      console.log("[Sync] Handshake successful. Queue flushed.");
+    }
     return { ok: pushed, reason: pushed ? null : "sync-failed" };
   }, [ensurePlayerId, checkHealth, register, pushStats]);
 
@@ -105,7 +111,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       const raw = urlOverride ?? serverUrl;
       const normalized = normalizeServerUrl(raw);
       if (raw?.trim() && !normalized) {
-        return { ok: false, error: "Invalid URL. Use: http://192.168.x.x:3847" };
+        return { ok: false, error: "Invalid URL." };
       }
       if (normalized && normalized !== getApiBase(serverUrl)) {
         setPreferences({ serverUrl: normalized });
@@ -122,9 +128,12 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   useEffect(() => {
     if (!enabled) return undefined;
     checkHealth();
-    const id = setInterval(() => {
-      checkHealth();
-      syncNow();
+    const id = setInterval(async () => {
+      // Auto-retry connection handshakes on heartbeat recovery
+      const isHealthy = await checkHealth();
+      if (isHealthy.ok) {
+        syncNow();
+      }
     }, pollInterval);
     return () => clearInterval(id);
   }, [enabled, pollInterval, checkHealth, syncNow]);

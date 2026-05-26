@@ -1,160 +1,139 @@
-import Database from "better-sqlite3";
-import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+import mongoose from "mongoose";
+import "dotenv/config";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(__dirname, "data");
-const dbPath = join(dataDir, "database.sqlite");
-const jsonDbPath = join(dataDir, "players.json");
+const userSchema = new mongoose.Schema({
+  playerId: { type: String, required: true, unique: true }, // Mapped to Clerk/Google ID
+  displayName: { type: String, default: "Aspirant" },
+  decor: { type: Object, default: {} },
+  xp: { type: Number, default: 0 },
+  level: { type: Number, default: 1 },
+  totalSolved: { type: Number, default: 0 },
+  totalPagesRead: { type: Number, default: 0 },
+  streak: { type: Number, default: 0 },
+  bestStreak: { type: Number, default: 0 },
+  rankLabel: { type: String, default: "Beginner" },
+  studyMinutes: { type: Number, default: 0 },
+  activityTotal: { type: Number, default: 0 },
+  updatedAt: { type: Date, default: Date.now }
+});
 
-if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+// Calculate activityTotal before saving to allow easy sorting
+userSchema.pre('save', function(next) {
+  this.activityTotal = this.totalSolved + this.totalPagesRead + ((this.studyMinutes || 0) * 0.5);
+  this.updatedAt = new Date();
+  next();
+});
 
-const dbConn = new Database(dbPath);
-dbConn.pragma("journal_mode = WAL");
+// Indexes for fast leaderboard queries
+userSchema.index({ activityTotal: -1, studyMinutes: -1 });
 
-// Initialize Schema
-dbConn.exec(`
-  CREATE TABLE IF NOT EXISTS players (
-    player_id TEXT PRIMARY KEY,
-    display_name TEXT,
-    decor_json TEXT,
-    xp INTEGER DEFAULT 0,
-    level INTEGER DEFAULT 1,
-    total_solved INTEGER DEFAULT 0,
-    total_pages_read INTEGER DEFAULT 0,
-    streak INTEGER DEFAULT 0,
-    best_streak INTEGER DEFAULT 0,
-    rank_label TEXT DEFAULT 'Beginner',
-    study_minutes INTEGER DEFAULT 0,
-    updated_at INTEGER
-  )
-`);
+export const User = mongoose.model("User", userSchema);
 
-// Migration from JSON if exists
-if (existsSync(jsonDbPath)) {
+export const connectDB = async () => {
+  if (!process.env.MONGO_URI) {
+    console.warn("Missing MONGO_URI. Skipping database connection. Provide a Mongo string for cloud persistence.");
+    return;
+  }
   try {
-    const data = JSON.parse(readFileSync(jsonDbPath, "utf8"));
-    const players = data.players || {};
-    
-    const insert = dbConn.prepare(`
-      INSERT OR REPLACE INTO players (
-        player_id, display_name, decor_json, xp, level, 
-        total_solved, total_pages_read, streak, best_streak, 
-        rank_label, study_minutes, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const transaction = dbConn.transaction((playersMap) => {
-      for (const [id, p] of Object.entries(playersMap)) {
-        insert.run(
-          id,
-          p.display_name,
-          p.decor_json,
-          p.xp,
-          p.level,
-          p.total_solved,
-          p.total_pages_read,
-          p.streak,
-          p.best_streak,
-          p.rank_label,
-          p.study_minutes ?? 0,
-          p.updated_at
-        );
-      }
-    });
-
-    transaction(players);
-    console.log(`Migrated ${Object.keys(players).length} players from JSON to SQLite.`);
-    // unlinkSync(jsonDbPath); // Optional: delete after migration
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("MongoDB Connected Successfully");
   } catch (err) {
-    console.error("Migration failed:", err);
+    console.error("MongoDB Connection Error:", err);
+  }
+};
+
+export async function upsertPlayer({ playerId, displayName, decor }) {
+  try {
+    const updatePayload = { 
+      displayName, 
+      updatedAt: new Date() 
+    };
+    if (decor) updatePayload.decor = decor;
+
+    await User.findOneAndUpdate(
+      { playerId },
+      { $set: updatePayload },
+      { upsert: true, new: true }
+    );
+  } catch (e) {
+    console.error("Upsert Player Error:", e);
   }
 }
 
-export const db = { name: dbPath };
-
-export function upsertPlayer({ playerId, displayName, decor }) {
-  const existing = dbConn.prepare("SELECT * FROM players WHERE player_id = ?").get(playerId);
-  
-  if (existing) {
-    dbConn.prepare(`
-      UPDATE players 
-      SET display_name = ?, decor_json = ?, updated_at = ?
-      WHERE player_id = ?
-    `).run(
-      displayName,
-      JSON.stringify(decor || {}),
-      Date.now(),
-      playerId
-    );
-  } else {
-    dbConn.prepare(`
-      INSERT INTO players (player_id, display_name, decor_json, updated_at)
-      VALUES (?, ?, ?, ?)
-    `).run(
-      playerId,
-      displayName,
-      JSON.stringify(decor || {}),
-      Date.now()
-    );
+export async function updateStats(playerId, stats) {
+  try {
+    const user = await User.findOne({ playerId });
+    if (!user) return false;
+    
+    if (stats.xp !== undefined) user.xp = stats.xp;
+    if (stats.level !== undefined) user.level = stats.level;
+    if (stats.totalSolved !== undefined) user.totalSolved = stats.totalSolved;
+    if (stats.totalPagesRead !== undefined) user.totalPagesRead = stats.totalPagesRead;
+    if (stats.streak !== undefined) user.streak = stats.streak;
+    if (stats.bestStreak !== undefined) user.bestStreak = stats.bestStreak;
+    if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel;
+    if (stats.studyMinutes !== undefined) user.studyMinutes = stats.studyMinutes;
+    
+    await user.save();
+    return true;
+  } catch (e) {
+    console.error("Update Stats Error:", e);
+    return false;
   }
 }
 
-function activityFromRow(row) {
-  return row.total_solved + row.total_pages_read + (row.study_minutes ?? 0) * 0.5;
+export async function getPlayer(playerId) {
+  try {
+    const user = await User.findOne({ playerId }).lean();
+    if (!user) return null;
+    return {
+      playerId: user.playerId,
+      displayName: user.displayName,
+      decor: user.decor,
+      xp: user.xp,
+      level: user.level,
+      totalSolved: user.totalSolved,
+      totalPagesRead: user.totalPagesRead,
+      activityTotal: user.activityTotal,
+      streak: user.streak,
+      bestStreak: user.bestStreak,
+      rankLabel: user.rankLabel,
+      studyMinutes: user.studyMinutes,
+      updatedAt: user.updatedAt
+    };
+  } catch (e) {
+    console.error("Get Player Error:", e);
+    return null;
+  }
 }
 
-export function updateStats(playerId, stats) {
-  const result = dbConn.prepare(`
-    UPDATE players 
-    SET xp = ?, level = ?, total_solved = ?, total_pages_read = ?, 
-        streak = ?, best_streak = ?, rank_label = ?, study_minutes = ?, updated_at = ?
-    WHERE player_id = ?
-  `).run(
-    stats.xp,
-    stats.level,
-    stats.totalSolved,
-    stats.totalPagesRead,
-    stats.streak,
-    stats.bestStreak,
-    stats.rankLabel,
-    stats.studyMinutes ?? 0,
-    Date.now(),
-    playerId
-  );
-  return result.changes > 0;
+export async function getLeaderboard(sort = "activity") {
+  try {
+    let sortQuery = { activityTotal: -1, studyMinutes: -1 };
+    if (sort === "xp") sortQuery = { xp: -1, activityTotal: -1 };
+    if (sort === "streak") sortQuery = { streak: -1, activityTotal: -1 };
+
+    const users = await User.find({}).sort(sortQuery).limit(100).lean();
+    return users.map((u, i) => ({
+      rank: i + 1,
+      playerId: u.playerId,
+      displayName: u.displayName,
+      decor: u.decor,
+      xp: u.xp,
+      level: u.level,
+      totalSolved: u.totalSolved,
+      totalPagesRead: u.totalPagesRead,
+      activityTotal: u.activityTotal,
+      streak: u.streak,
+      bestStreak: u.bestStreak,
+      rankLabel: u.rankLabel,
+      studyMinutes: u.studyMinutes,
+      updatedAt: u.updatedAt
+    }));
+  } catch (e) {
+    console.error("Leaderboard Error:", e);
+    return [];
+  }
 }
 
-export function getPlayer(playerId) {
-  return dbConn.prepare("SELECT * FROM players WHERE player_id = ?").get(playerId) || null;
-}
-
-export function getLeaderboard(sort = "activity") {
-  const rows = dbConn.prepare("SELECT * FROM players").all();
-  
-  rows.sort((a, b) => {
-    const actA = activityFromRow(a);
-    const actB = activityFromRow(b);
-    if (sort === "xp") return b.xp - a.xp || actB - actA;
-    if (sort === "streak") return b.streak - a.streak || actB - actA;
-    return actB - actA || b.xp - a.xp;
-  });
-
-  return rows.slice(0, 100).map((row, index) => ({
-    rank: index + 1,
-    playerId: row.player_id,
-    displayName: row.display_name,
-    decor: JSON.parse(row.decor_json || "{}"),
-    xp: row.xp,
-    level: row.level,
-    totalSolved: row.total_solved,
-    totalPagesRead: row.total_pages_read,
-    activityTotal: activityFromRow(row),
-    streak: row.streak,
-    bestStreak: row.best_streak,
-    rankLabel: row.rank_label,
-    studyMinutes: row.study_minutes ?? 0,
-    updatedAt: row.updated_at,
-  }));
-}
+export const db = { name: "MongoDB-Cloud" };

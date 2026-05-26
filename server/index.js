@@ -1,21 +1,25 @@
 import express from "express";
 import cors from "cors";
-import os from "os";
 import "dotenv/config";
 import { AccessToken } from "livekit-server-sdk";
-import { db, getLeaderboard, getPlayer, updateStats, upsertPlayer } from "./db.js";
+import rateLimit from "express-rate-limit";
+import { ClerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
+import { connectDB, db, getLeaderboard, getPlayer, updateStats, upsertPlayer } from "./db.js";
 
-const PORT = Number(process.env.PORT) || 3847;
-const SERVER_PIN = process.env.SERVER_PIN || "";
+// Connect to MongoDB
+connectDB();
+
+// Render uses dynamic ports
+const PORT = process.env.PORT || 3847;
+
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || "devkey";
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || "secret";
 const LIVEKIT_URL = process.env.VITE_LIVEKIT_URL || "";
 
 const app = express();
 
-// Comprehensive CORS configuration
 app.use(cors({
-  origin: true, // Echoes the request origin
+  origin: true,
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
@@ -25,179 +29,227 @@ app.use(cors({
     "X-Server-Pin", 
     "ngrok-skip-browser-warning",
     "access-control-allow-private-network"
-  ],
-  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+  ]
 }));
-
-// Request Logging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} [${req.method}] ${req.url}`);
-  next();
-});
 
 app.use(express.json({ limit: "64kb" }));
 
-function requirePin(req, res, next) {
-  if (!SERVER_PIN) return next();
-  if (req.headers["x-server-pin"] === SERVER_PIN) return next();
-  res.status(401).json({ error: "Invalid server pin" });
+// --- Part 1.3: Standard Request Throttling ---
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 150, // Limit each IP to 150 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." }
+});
+
+app.use("/api/leaderboard", apiLimiter);
+app.use("/api/players", apiLimiter);
+
+// --- Part 1.1 & 1.2: Anti-Cheat & Velocity Logic ---
+const userTracking = new Map();
+const MAX_MCQ_PER_MIN = 3;
+const MAX_PAGES_PER_MIN = 2;
+const MAX_DAILY_AP = 1200;
+
+function antiCheatMiddleware(req, res, next) {
+  const playerId = req.headers["x-player-id"] || req.params.playerId;
+  if (!playerId) return next();
+
+  const now = Date.now();
+  const ONE_MINUTE = 60 * 1000;
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  if (!userTracking.has(playerId)) {
+    userTracking.set(playerId, {
+      mcqLogs: [],
+      pageLogs: [],
+      dailyAp: 0,
+      dayStart: now,
+      lastSolved: 0,
+      lastPages: 0
+    });
+  }
+
+  const tracker = userTracking.get(playerId);
+
+  // Reset daily cap rolling window
+  if (now - tracker.dayStart > ONE_DAY) {
+    tracker.dailyAp = 0;
+    tracker.dayStart = now;
+  }
+
+  const incomingStats = req.body;
+  if (incomingStats && (incomingStats.totalSolved !== undefined || incomingStats.totalPagesRead !== undefined)) {
+    
+    // Calculate incoming delta based on cached totals
+    const prevSolved = tracker.lastSolved || 0;
+    const prevPages = tracker.lastPages || 0;
+    
+    const incomingSolved = incomingStats.totalSolved || prevSolved;
+    const incomingPages = incomingStats.totalPagesRead || prevPages;
+
+    const mcqDelta = Math.max(0, incomingSolved - prevSolved);
+    const pagesDelta = Math.max(0, incomingPages - prevPages);
+    
+    if (mcqDelta > 0) tracker.mcqLogs.push({ time: now, count: mcqDelta });
+    if (pagesDelta > 0) tracker.pageLogs.push({ time: now, count: pagesDelta });
+    
+    // Purge old logs outside the 1-minute window
+    tracker.mcqLogs = tracker.mcqLogs.filter(log => now - log.time <= ONE_MINUTE);
+    tracker.pageLogs = tracker.pageLogs.filter(log => now - log.time <= ONE_MINUTE);
+    
+    const recentMcqs = tracker.mcqLogs.reduce((acc, log) => acc + log.count, 0);
+    const recentPages = tracker.pageLogs.reduce((acc, log) => acc + log.count, 0);
+    
+    // Rule 1: Mathematical Rate Safeguards
+    if (recentMcqs > MAX_MCQ_PER_MIN || recentPages > MAX_PAGES_PER_MIN) {
+      console.warn(`[Anti-Cheat] Velocity threshold exceeded for ${playerId}`);
+      return res.status(429).json({ error: "Velocity threshold exceeded. Human limits apply." });
+    }
+    
+    // Rule 2: Daily Cap Ingestion
+    const apDelta = mcqDelta + pagesDelta; // Simple AP delta
+    tracker.dailyAp += apDelta;
+    if (tracker.dailyAp > MAX_DAILY_AP) {
+      console.warn(`[Anti-Cheat] Daily AP cap exceeded for ${playerId}`);
+      return res.status(429).json({ error: "Daily AP cap of 1200 exceeded." });
+    }
+
+    tracker.lastSolved = incomingSolved;
+    tracker.lastPages = incomingPages;
+  }
+
+  next();
 }
 
 function requirePlayer(req, res, next) {
   const playerId = req.headers["x-player-id"] || req.params.playerId;
   if (!playerId) {
-    res.status(400).json({ error: "Missing X-Player-Id" });
-    return;
+    return res.status(400).json({ error: "Missing X-Player-Id" });
   }
   req.playerId = playerId;
   next();
 }
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, time: Date.now(), port: PORT, version: "1.2.0" });
-});
+// --- Auth Middleware Configuration ---
+// If CLERK_SECRET_KEY is provided, we strictly enforce OAuth token verification.
+// Otherwise, we allow bypass for local dev fallback.
+const authMiddleware = process.env.CLERK_SECRET_KEY 
+  ? ClerkExpressRequireAuth() 
+  : (req, res, next) => next();
 
-app.post("/api/admin/restart", (req, res) => {
-  res.json({ ok: true, message: "Server restarting..." });
-  console.log("\n--- ADMIN RESTART SIGNAL RECEIVED ---");
-  console.log("Shutting down in 1s...");
-  setTimeout(() => {
-    process.exit(0); // Assumes a process runner like 'npm run server' loop or PM2
-  }, 1000);
+// --- Routes ---
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, time: Date.now(), port: PORT, status: "production-ready", authEnabled: !!process.env.CLERK_SECRET_KEY });
 });
 
 app.post("/api/livekit/token", async (req, res) => {
   const { playerName, roomName } = req.body;
-  if (!playerName) {
-    return res.status(400).json({ error: "playerName is required" });
-  }
+  if (!playerName) return res.status(400).json({ error: "playerName is required" });
 
   const room = roomName || "NEET-Study-Room";
-  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-    identity: playerName,
-  });
+  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: playerName });
   at.addGrant({ roomJoin: true, room: room, canPublish: true, canSubscribe: true });
 
-  res.json({ 
-    token: await at.toJwt(),
-    serverUrl: LIVEKIT_URL
-  });
+  res.json({ token: await at.toJwt(), serverUrl: LIVEKIT_URL });
 });
 
-app.post("/api/players/register", requirePin, (req, res) => {
+app.post("/api/players/register", authMiddleware, async (req, res) => {
   const { playerId, displayName, decor } = req.body;
-  if (!playerId || !displayName) {
-    res.status(400).json({ error: "playerId and displayName required" });
-    return;
+  if (!playerId || !displayName) return res.status(400).json({ error: "playerId and displayName required" });
+  
+  // Guard against identity spoofing if using Clerk
+  if (req.auth && req.auth.userId !== playerId) {
+    return res.status(403).json({ error: "Identity mismatch. Token does not match requested player ID." });
   }
-  upsertPlayer({
+
+  await upsertPlayer({
     playerId,
     displayName: String(displayName).slice(0, 24),
     decor: decor || {},
   });
-  res.json({ ok: true, player: getPlayer(playerId) });
+  const player = await getPlayer(playerId);
+  res.json({ ok: true, player });
 });
 
-app.patch("/api/players/:playerId", requirePin, requirePlayer, (req, res) => {
-  const existing = getPlayer(req.playerId);
-  if (!existing) {
-    res.status(404).json({ error: "Player not found" });
-    return;
+app.patch("/api/players/:playerId", authMiddleware, requirePlayer, async (req, res) => {
+  if (req.auth && req.auth.userId !== req.playerId) {
+    return res.status(403).json({ error: "Identity mismatch." });
   }
+
+  const existing = await getPlayer(req.playerId);
+  if (!existing) return res.status(404).json({ error: "Player not found" });
+  
   const { displayName, decor } = req.body;
-  upsertPlayer({
+  await upsertPlayer({
     playerId: req.playerId,
-    displayName: displayName ?? existing.display_name,
-    decor: decor ?? JSON.parse(existing.decor_json || "{}"),
+    displayName: displayName ?? existing.displayName,
+    decor: decor ?? existing.decor,
   });
   res.json({ ok: true });
 });
 
-app.put("/api/players/:playerId/stats", requirePin, requirePlayer, (req, res) => {
-  let player = getPlayer(req.playerId);
+app.put("/api/players/:playerId/stats", authMiddleware, requirePlayer, antiCheatMiddleware, async (req, res) => {
+  if (req.auth && req.auth.userId !== req.playerId) {
+    return res.status(403).json({ error: "Identity mismatch." });
+  }
+
+  let player = await getPlayer(req.playerId);
   if (!player) {
-    upsertPlayer({
+    await upsertPlayer({
       playerId: req.playerId,
       displayName: req.body.displayName || "Aspirant",
       decor: req.body.decor || {},
     });
-    player = getPlayer(req.playerId);
+    player = await getPlayer(req.playerId);
   }
+  
   const stats = req.body;
-  updateStats(req.playerId, {
+  await updateStats(req.playerId, {
     xp: stats.xp ?? player.xp,
     level: stats.level ?? player.level,
-    totalSolved: stats.totalSolved ?? player.total_solved,
-    totalPagesRead: stats.totalPagesRead ?? player.total_pages_read,
+    totalSolved: stats.totalSolved ?? player.totalSolved,
+    totalPagesRead: stats.totalPagesRead ?? player.totalPagesRead,
     streak: stats.streak ?? player.streak,
-    bestStreak: stats.bestStreak ?? player.best_streak,
-    rankLabel: stats.rankLabel ?? player.rank_label,
-    studyMinutes:
-      stats.studyMinutes != null
-        ? Number(stats.studyMinutes) || 0
-        : (player.study_minutes ?? 0),
+    bestStreak: stats.bestStreak ?? player.bestStreak,
+    rankLabel: stats.rankLabel ?? player.rankLabel,
+    studyMinutes: stats.studyMinutes != null ? Number(stats.studyMinutes) || 0 : (player.studyMinutes ?? 0),
   });
+  
   res.json({ ok: true });
 });
 
-app.get("/api/leaderboard", (req, res) => {
+app.get("/api/leaderboard", async (req, res) => {
   const sort = req.query.sort || "activity";
-  res.json({ players: getLeaderboard(sort) });
+  const players = await getLeaderboard(sort);
+  res.json({ players });
 });
 
-app.get("/api/players/:playerId", (req, res) => {
-  const row = getPlayer(req.params.playerId);
-  if (!row) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
-  res.json({
-    playerId: row.player_id,
-    displayName: row.display_name,
-    decor: JSON.parse(row.decor_json || "{}"),
-    xp: row.xp,
-    level: row.level,
-    totalSolved: row.total_solved,
-    totalPagesRead: row.total_pages_read,
-    activityTotal:
-      row.total_solved + row.total_pages_read + (row.study_minutes ?? 0) * 0.5,
-    streak: row.streak,
-    bestStreak: row.best_streak,
-    rankLabel: row.rank_label,
-    studyMinutes: row.study_minutes ?? 0,
-  });
+app.get("/api/players/:playerId", async (req, res) => {
+  const player = await getPlayer(req.params.playerId);
+  if (!player) return res.status(404).json({ error: "Not found" });
+  res.json(player);
 });
 
-function printLanAddresses() {
-  const nets = os.networkInterfaces();
-  const lines = [];
-  for (const entries of Object.values(nets)) {
-    for (const entry of entries || []) {
-      if (entry.family === "IPv4" && !entry.internal) {
-        lines.push(`  → http://${entry.address}:${PORT}`);
-      }
-    }
+// Error handling middleware for Clerk Auth
+app.use((err, req, res, next) => {
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({ error: "Unauthenticated request. Valid Clerk JWT required." });
   }
-  if (lines.length) {
-    console.log("\nFriends connect using one of these URLs in Settings:");
-    lines.forEach((l) => console.log(l));
-  }
-  console.log("\nWindows firewall (run as Admin if friends cannot connect):");
-  console.log(
-    `  netsh advfirewall firewall add rule name="NEET Tracker LB" dir=in action=allow protocol=TCP localport=${PORT}`,
-  );
-}
+  next(err);
+});
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`NEET leaderboard server v1.2.0 listening on 0.0.0.0:${PORT}`);
-  console.log(`DB: ${db.name}`);
-  printLanAddresses();
+  console.log(`NEET Leaderboard Server running on port ${PORT}`);
+  console.log(`Database Engine: ${db.name}`);
+  console.log(`Auth Strategy: ${process.env.CLERK_SECRET_KEY ? "Clerk OAuth" : "Local Development Bypass"}`);
 });
 
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
-    console.error(`\nPort ${PORT} is already in use — server may already be running.`);
-    console.error("  npm run server:stop   then   npm run server\n");
+    console.error(`\nPort ${PORT} is already in use.`);
     process.exit(1);
   }
   throw err;
