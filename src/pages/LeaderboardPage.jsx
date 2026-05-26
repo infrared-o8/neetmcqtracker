@@ -143,11 +143,18 @@ export function LeaderboardPage() {
     players.length
   ]);
 
+  const loadRef = useRef(load);
   useEffect(() => {
-    load();
-    const id = setInterval(load, 30000);
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    loadRef.current();
+    const id = setInterval(() => {
+      loadRef.current();
+    }, 30000);
     return () => clearInterval(id);
-  }, [load]);
+  }, []);
 
   const first = players[0];
 

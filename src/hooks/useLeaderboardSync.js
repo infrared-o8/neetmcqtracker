@@ -16,7 +16,14 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   const debounceRef = useRef(null);
   const [serverOnline, setServerOnline] = useState(false);
   const [lastError, setLastError] = useState("");
-  const [isRateLimited, setIsRateLimited] = useState(false);
+  const isRateLimitedRef = useRef(false);
+  const [isRateLimited, setIsRateLimitedState] = useState(false);
+  
+  const setIsRateLimited = (val) => {
+    isRateLimitedRef.current = val;
+    setIsRateLimitedState(val);
+  };
+
   const cooldownRef = useRef(0);
 
   const apiBase = getApiBase(serverUrl);
@@ -27,7 +34,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   const checkHealth = useCallback(
     async (urlOverride) => {
       // Don't even try if we are in a cooldown period
-      if (Date.now() < cooldownRef.current) return { ok: false, error: "Rate limit cooldown active" };
+      if (Date.now() < cooldownRef.current) return { ok: false, error: "Rate limit cooldown active", status: 429 };
 
       const raw = urlOverride ?? serverUrl;
       const result = await checkServerHealth(raw);
@@ -36,8 +43,11 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         if (!result.ok && result.status === 429) {
           setIsRateLimited(true);
           cooldownRef.current = Date.now() + 30000; // 30s cooldown
+        } else if (result.ok) {
+          setIsRateLimited(false);
+          setLastError("");
         } else {
-          setLastError(result.ok ? "" : result.error || "Connection failed");
+          setLastError(result.error || "Connection failed");
         }
       }
       return result;
@@ -119,7 +129,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     if (!activePlayerId) return { ok: false, reason: "no-player" };
 
     const health = await checkHealth();
-    if (!health.ok) return { ok: false, reason: isRateLimited ? "rate-limited" : "offline" };
+    if (!health.ok) return { ok: false, reason: isRateLimitedRef.current ? "rate-limited" : "offline" };
 
     try {
       // 1. Initial Handshake: Register and check existing cloud state
@@ -171,7 +181,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       setLastError(e.message);
       return { ok: false, reason: "error", error: e.message };
     }
-  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats, getSnapshot, serverUrl, isRateLimited]);
+  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats, getSnapshot, serverUrl]);
 
   const scheduleSync = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -209,18 +219,30 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     ensurePlayerId();
   }, [ensurePlayerId]);
 
+  // Use refs for callbacks in interval to avoid re-triggering the effect
+  const checkHealthRef = useRef(checkHealth);
+  const syncNowRef = useRef(syncNow);
+  useEffect(() => {
+    checkHealthRef.current = checkHealth;
+    syncNowRef.current = syncNow;
+  });
+
   useEffect(() => {
     if (!enabled) return undefined;
-    checkHealth();
+    
+    // Immediate check
+    checkHealthRef.current();
+
     const id = setInterval(async () => {
       // Auto-retry connection handshakes on heartbeat recovery
-      const isHealthy = await checkHealth();
+      const isHealthy = await checkHealthRef.current();
       if (isHealthy.ok) {
-        syncNow();
+        syncNowRef.current();
       }
     }, pollInterval);
+    
     return () => clearInterval(id);
-  }, [enabled, pollInterval, checkHealth, syncNow]);
+  }, [enabled, pollInterval]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -241,6 +263,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     usingProxy,
     connected: serverOnline,
     lastError,
+    isRateLimited,
     scheduleSync,
     syncNow,
     fetchLeaderboard,

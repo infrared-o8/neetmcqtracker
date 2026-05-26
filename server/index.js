@@ -18,6 +18,8 @@ const LIVEKIT_URL = process.env.VITE_LIVEKIT_URL || "";
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(cors({
   origin: true,
   credentials: true,
