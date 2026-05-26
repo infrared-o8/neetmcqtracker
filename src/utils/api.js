@@ -38,7 +38,7 @@ export function apiUrl(serverUrl, path) {
   return base ? `${base}${p}` : p;
 }
 
-function fetchWithTimeout(url, options = {}, ms = 10000) {
+function fetchWithTimeout(url, options = {}, ms = 60000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   const { signal: outerSignal, ...rest } = options;
@@ -56,14 +56,14 @@ function fetchWithTimeout(url, options = {}, ms = 10000) {
 export function describeFetchError(err, targetUrl) {
   if (!err) return "Unknown error";
   if (err.name === "AbortError") {
-    return `Timed out reaching ${targetUrl}. Check firewall and that both PCs are on the same Wi‑Fi.`;
+    return `Timed out reaching ${targetUrl}. The server might be waking up (Render Free Tier takes ~1m). Please wait or refresh.`;
   }
   const msg = err.message || String(err);
   if (/failed to fetch|networkerror|load failed|tcp|connection/i.test(msg)) {
     return [
       `Cannot connect to ${targetUrl}.`,
-      "Friend's laptop: run npm run server and allow port 3847 in Windows Firewall.",
-      "Use full URL: http://THEIR_IP:3847 (same Wi‑Fi, not mobile hotspot guest mode).",
+      "If the server is on Render free tier, it may be waking up.",
+      "Check your internet connection and verify the Leaderboard Server URL in Settings.",
     ].join(" ");
   }
   return msg;
