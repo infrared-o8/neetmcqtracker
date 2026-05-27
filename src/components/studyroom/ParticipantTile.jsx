@@ -92,6 +92,8 @@ export function ParticipantTile({ trackRef, isMicOpen }) {
     };
   }, [room, participant.isLocal]);
 
+  const isMicEnabled = participant.isMicrophoneEnabled;
+
   return (
     <motion.div 
       layout
@@ -147,13 +149,22 @@ export function ParticipantTile({ trackRef, isMicOpen }) {
         <div className={`flex items-center ${scale.gap} rounded-full bg-black/50 ${scale.banner} ${!reduceGpuUsage ? 'backdrop-blur-md' : ''} border border-white/5`}>
           <div className={`h-1.5 w-1.5 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'} ${!reduceGpuUsage && isSpeaking ? 'shadow-[0_0_8px_rgba(52,211,153,0.8)]' : ''}`} />
           <span className={`${scale.text} font-bold text-white/90 uppercase tracking-wider truncate max-w-[80px]`}>
-            {identity} <span className="text-zinc-400 font-medium opacity-70">({rank})</span>
+            {identity} {participant.isLocal && '(You)'} <span className="text-zinc-400 font-medium opacity-70">({rank})</span>
           </span>
-          {isMicOpen && (
-            <div className="ml-1 opacity-60">
-              {isSpeaking ? <Mic className={`${scale.icon} text-emerald-400`} /> : <MicOff className={`${scale.icon} text-zinc-600`} />}
-            </div>
-          )}
+          
+          {/* Explicit Mic Status Indicator */}
+          <div className={`ml-1 flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all ${
+            isMicEnabled 
+              ? (isSpeaking ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/40 border-white/5 text-zinc-500')
+              : 'bg-red-500/10 border-red-500/20 text-red-400'
+          }`}>
+            {isMicEnabled ? (
+              isSpeaking ? <Mic className={`${scale.icon} animate-pulse`} /> : <Mic className={scale.icon} />
+            ) : (
+              <MicOff className={scale.icon} />
+            )}
+            {!isMicEnabled && <span className="text-[7px] font-black uppercase tracking-tighter">Muted</span>}
+          </div>
         </div>
         
         <button 

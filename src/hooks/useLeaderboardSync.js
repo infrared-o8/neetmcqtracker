@@ -60,7 +60,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     if (!activePlayerId || Date.now() < cooldownRef.current) return false;
     try {
       const { displayName, decor } = useProfileStore.getState();
-      const token = (clerkUserId && !isLegacyServer) ? await getToken() : null;
+      const token = clerkUserId ? await getToken() : null;
       
       const res = await apiFetch(serverUrl, "/api/players/register", {
         method: "POST",
@@ -96,7 +96,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         totalCratesOpened
       } = useProfileStore.getState();
       const stats = getSnapshot(); 
-      const token = (clerkUserId && !isLegacyServer) ? await getToken() : null;
+      const token = clerkUserId ? await getToken() : null;
 
       const res = await apiFetch(serverUrl, `/api/players/${activePlayerId}/stats`, {
         method: "PUT",
@@ -148,9 +148,10 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     }
   }, [serverUrl, getSnapshot, setLastSyncedAt, getToken, activePlayerId, clerkUserId, isLegacyServer]);
 
-  const syncNow = useCallback(async () => {
+  const syncNow = useCallback(async (options = {}) => {
+    const { force = false } = options;
     if (!authLoaded) return { ok: false, reason: "auth-loading" };
-    if (Date.now() < cooldownRef.current) return { ok: false, reason: "rate-limited" };
+    if (Date.now() < cooldownRef.current && !force) return { ok: false, reason: "rate-limited" };
     
     if (!clerkUserId) ensurePlayerId();
     if (!activePlayerId) return { ok: false, reason: "no-player" };
@@ -167,8 +168,8 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       // 1. Initial Handshake: Register and check existing cloud state
       await register();
       
-      // In Legacy Mode, we skip the aggressive "Restore" pull and just push
-      if (isLegacyServer) {
+      // In Legacy Mode, we skip the aggressive "Restore" pull and just push, UNLESS forced
+      if (isLegacyServer && !force) {
         const pushed = await pushStats();
         return { ok: pushed, reason: pushed ? null : "sync-failed" };
       }
@@ -183,7 +184,8 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         const cloudActivity = cloudData.activityTotal || 0;
         const localActivity = localStats.activityTotal || 0;
         
-        const shouldRestore = cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0);
+        // If forced, we always merge. Otherwise only if cloud has more progress.
+        const shouldRestore = force || cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0);
 
         if (shouldRestore) {
           console.log("[Sync] Restoration triggered. Aligning local state with MongoDB Cloud.");

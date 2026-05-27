@@ -47,12 +47,11 @@ export function LeaderboardPage() {
 
   const handleForceSync = useCallback(async () => {
     if (syncCooldown > 0) return;
-    
+
     setLoading(true);
-    const result = await syncNow();
-    
-    if (result.ok) {
-      // Start 60s cooldown
+    const result = await syncNow({ force: true });
+
+    if (result.ok) {      // Start 60s cooldown
       setSyncCooldown(60);
       cooldownTimerRef.current = setInterval(() => {
         setSyncCooldown((prev) => {

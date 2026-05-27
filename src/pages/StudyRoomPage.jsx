@@ -282,11 +282,14 @@ export default function StudyRoomPage() {
 }
 
 function RoomCard({ room, onJoin, onDelete, isCreator }) {
+  const isFull = (room.activeCount ?? 0) >= (room.capacity ?? 20);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/5 bg-zinc-900/40 p-6 transition-all hover:border-fuchsia-500/30 hover:bg-zinc-900/60"
+      onClick={isFull ? null : onJoin}
+      className={`group relative flex flex-col overflow-hidden rounded-3xl border border-white/5 bg-zinc-900/40 p-6 transition-all hover:border-fuchsia-500/30 hover:bg-zinc-900/60 ${isFull ? 'opacity-80' : 'cursor-pointer'}`}
     >
       <div className="mb-4 flex items-start justify-between">
         <div className="flex gap-2">
@@ -302,7 +305,7 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
         {isCreator && (
           <button 
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="rounded-lg p-2 text-zinc-600 hover:bg-red-500/10 hover:text-red-500 transition-all"
+            className="relative z-10 rounded-lg p-2 text-zinc-600 hover:bg-red-500/10 hover:text-red-500 transition-all"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -317,25 +320,27 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Creator</p>
           <p className="text-xs font-bold text-zinc-300">{room.creatorName}</p>
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 border border-white/5">
-          <Users className="h-3 w-3 text-cyan-400" />
-          <span className="text-[10px] font-black text-zinc-400">
+        <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 border ${isFull ? 'bg-red-500/10 border-red-500/20' : 'bg-black/40 border-white/5'}`}>
+          <Users className={`h-3 w-3 ${isFull ? 'text-red-400' : 'text-cyan-400'}`} />
+          <span className={`text-[10px] font-black ${isFull ? 'text-red-400' : 'text-zinc-400'}`}>
             {room.activeCount ?? 0} / {room.capacity}
           </span>
         </div>
       </div>
 
-      <button 
-        onClick={onJoin}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 py-3 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 transition-all group-hover:bg-fuchsia-600 group-hover:text-white"
+      <div 
+        className={`mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-black uppercase tracking-[0.2em] transition-all ${
+          isFull 
+            ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed' 
+            : 'bg-white/5 text-zinc-400 group-hover:bg-fuchsia-600 group-hover:text-white'
+        }`}
       >
-        Enter Hall
-        <ArrowRight className="h-3 w-3" />
-      </button>
+        {isFull ? 'Room Full' : 'Enter Hall'}
+        {!isFull && <ArrowRight className="h-3 w-3" />}
+      </div>
     </motion.div>
   );
 }
-
 function CreateRoomModal({ onClose, onCreated }) {
   const [formData, setFormData] = useState({ title: '', description: '', capacity: 20, password: '', isMicOpen: false });
   const [loading, setLoading] = useState(false);
