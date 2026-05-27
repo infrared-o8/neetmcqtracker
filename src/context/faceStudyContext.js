@@ -10,6 +10,8 @@ export const FaceStudyContext = createContext({
   secondsTowardMinute: 0,
   minuteBurst: null,
   progressPercent: 0,
+  navigationPersistence: 'pending', // 'pending' | 'keep' | 'stop'
   startCamera: () => {},
   stopCamera: () => {},
+  setPersistence: () => {},
 });

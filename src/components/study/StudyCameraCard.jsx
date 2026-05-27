@@ -1,15 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { GlowCard } from "../ui/GlowCard";
 import { useFaceStudyContext } from "../../hooks/useFaceStudyContext";
 import { useTrackerStore } from "../../store/useTrackerStore";
 
-export function StudyCameraCard({ id, minimized, onToggleMinimize, className = "" }) {
+export function StudyCameraCard({ id, className = "", minimized, onToggleMinimize }) {
   const studyMinutes = useTrackerStore((s) => s.studyMinutes);
   const studyMinutesToday = useTrackerStore((s) => s.studyMinutesToday);
   const showAiSelfView = useTrackerStore((s) => s.preferences.showAiSelfView);
-  
+
   const {
-    videoRef,
     active,
     loading,
     error,
@@ -18,7 +17,18 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize, className = "
     secondsTowardMinute,
     startCamera,
     stopCamera,
+    stream
   } = useFaceStudyContext();
+
+  const localVideoRef = useRef(null);
+
+  // Sync stream to local video element
+  useEffect(() => {
+    if (active && stream && localVideoRef.current) {
+      localVideoRef.current.srcObject = stream;
+      localVideoRef.current.play().catch(console.error);
+    }
+  }, [active, stream]);
 
   // Removed auto-restart on mount
 
@@ -49,7 +59,7 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize, className = "
 
       <div className={`relative mt-3 aspect-video overflow-hidden rounded-xl border border-white/10 bg-black/80 ${!showAiSelfView && active ? 'opacity-20 grayscale grayscale-100' : ''}`}>
         <video
-          ref={videoRef}
+          ref={localVideoRef}
           className={`h-full w-full object-cover mirror-video ${active ? "" : "hidden"} ${!showAiSelfView ? "invisible absolute" : ""}`}
           playsInline
           muted

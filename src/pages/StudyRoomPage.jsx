@@ -3,7 +3,8 @@ import {
   RoomAudioRenderer, 
   useParticipants,
   useTracks,
-  useLocalParticipant
+  useLocalParticipant,
+  RoomContext
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
@@ -35,7 +36,8 @@ import {
   MicOff,
   Video,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RefreshCcw
 } from 'lucide-react';
 import { RollingNumber } from '../components/ui/RollingNumber';
 import { QuickAddControls } from '../components/QuickAddControls';
@@ -49,7 +51,6 @@ import {
   getTodayKey,
 } from '../utils/gamification';
 
-import { FaceStudyTopBar } from '../components/study/FaceStudyTopBar';
 import { useFaceStudyContext } from '../hooks/useFaceStudyContext';
 
 export default function StudyRoomPage() {
@@ -68,6 +69,7 @@ export default function StudyRoomPage() {
   
   const { getToken, userId: clerkUserId } = useAuth();
   const { startCamera, stopCamera, videoRef } = useFaceStudyContext();
+  const muteOnJoin = useTrackerStore((s) => s.preferences.muteOnJoin);
   
   const profileDisplayName = useProfileStore((s) => s.displayName);
   const profilePlayerId = useProfileStore((s) => s.playerId);
@@ -78,8 +80,8 @@ export default function StudyRoomPage() {
   const displayName = profileDisplayName || 'Aspirant';
   const playerId = clerkUserId || profilePlayerId;
 
-  const fetchRooms = useCallback(async () => {
-    setLoadingRooms(true);
+  const fetchRooms = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoadingRooms(true);
     try {
       const res = await apiFetch(serverUrl, '/api/rooms');
       if (res.ok) {
@@ -89,12 +91,15 @@ export default function StudyRoomPage() {
     } catch (e) {
       console.error('Failed to fetch rooms:', e);
     } finally {
-      setLoadingRooms(false);
+      if (!isSilent) setLoadingRooms(false);
     }
   }, [serverUrl]);
 
   useEffect(() => {
     fetchRooms();
+    // Real-time update cycle for occupancy
+    const interval = setInterval(() => fetchRooms(true), 10000);
+    return () => clearInterval(interval);
   }, [fetchRooms]);
 
   const joinRoom = useCallback(async (roomData, password = '') => {
@@ -166,12 +171,15 @@ export default function StudyRoomPage() {
 
   if (activeRoomId && token && lkUrl) {
     const isGlobal = activeRoomId === 'NEET-Study-Room';
-    const audioEnabled = !isGlobal && activeRoom?.isMicOpen;
+    // isMicOpen prop for RoomView should be true if room ALLOWS it
+    const roomAllowsMic = !isGlobal && activeRoom?.isMicOpen;
+    // audio prop for LiveKitRoom should be true ONLY if user didn't mute on join
+    const audioEnabledOnStart = roomAllowsMic && !muteOnJoin;
 
     return (
       <LiveKitRoom
         video={true}
-        audio={audioEnabled} 
+        audio={audioEnabledOnStart} 
         token={token}
         serverUrl={lkUrl}
         onDisconnected={leaveRoom}
@@ -180,19 +188,33 @@ export default function StudyRoomPage() {
         <RoomView 
           roomId={activeRoomId} 
           onLeave={leaveRoom} 
-          videoRef={videoRef}
           showBottomStats={showBottomStats}
           setShowStats={setShowStats}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          isMicOpen={audioEnabled}
+          isMicOpen={roomAllowsMic}
         />
       </LiveKitRoom>
     );
   }
 
+  // Separate Global Hall from custom rooms for specific layout
+  const globalHall = rooms.find(r => r.roomId === 'NEET-Study-Room') || {
+    roomId: 'NEET-Study-Room',
+    title: 'Global High-Yield Hall',
+    description: 'The official 24/7 focus hall for all aspirants. Open to everyone.',
+    creatorName: 'System',
+    capacity: 50,
+    activeCount: 0,
+    isPasswordProtected: false,
+    isMicOpen: false,
+    isSystem: true
+  };
+
+  const customRooms = rooms.filter(r => r.roomId !== 'NEET-Study-Room');
+
   return (
-    <div className="min-h-full bg-zinc-950 px-6 py-10">
+    <div className="min-h-full bg-transparent px-6 py-10">
       <div className="mx-auto max-w-6xl">
         <header className="mb-12 flex flex-wrap items-center justify-between gap-6">
           <div>
@@ -223,39 +245,27 @@ export default function StudyRoomPage() {
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Global Default Room */}
             <RoomCard 
-              room={{
-                roomId: 'NEET-Study-Room',
-                title: 'Global High-Yield Hall',
-                description: 'The official 24/7 focus hall for all aspirants. Open to everyone.',
-                creatorName: 'System',
-                capacity: 50,
-                activeCount: 0, // Will be updated by enrichment if needed
-                isPasswordProtected: false,
-                isMicOpen: false
-              }}
-              onJoin={() => joinRoom({
-                roomId: 'NEET-Study-Room',
-                title: 'Global High-Yield Hall',
-                isMicOpen: false
-              })}
+              room={globalHall}
+              onJoin={() => joinRoom(globalHall)}
             />
 
-            {rooms.map(room => (
-              <RoomCard 
-                key={room.roomId}
-                room={room}
-                onJoin={() => room.isPasswordProtected ? setShowPasswordModal(room) : joinRoom(room)}
-                onDelete={() => deleteRoom(room.roomId)}
-                isCreator={room.creatorId === playerId}
-              />
-            ))}
+            {customRooms.map(room => {
+              const isCreator = room.creatorId === playerId || room.creatorId === profilePlayerId;
+              return (
+                <RoomCard 
+                  key={room.roomId}
+                  room={room}
+                  onJoin={() => room.isPasswordProtected ? setShowPasswordModal(room) : joinRoom(room)}
+                  onDelete={() => deleteRoom(room.roomId)}
+                  isCreator={isCreator}
+                />
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Modals */}
       <AnimatePresence>
         {showCreateModal && (
           <CreateRoomModal 
@@ -277,6 +287,47 @@ export default function StudyRoomPage() {
           />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function OccupancyCounter({ current, capacity }) {
+  const [prev, setPrev] = useState(current);
+  const [status, setStatus] = useState('idle');
+
+  useEffect(() => {
+    if (current > prev) {
+      setStatus('join');
+      const t = setTimeout(() => setStatus('idle'), 2000);
+      return () => clearTimeout(t);
+    } else if (current < prev) {
+      setStatus('leave');
+      const t = setTimeout(() => setStatus('idle'), 2000);
+      return () => clearTimeout(t);
+    }
+    setPrev(current);
+  }, [current, prev]);
+
+  const isFull = current >= capacity;
+
+  return (
+    <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 border transition-all duration-500 ${
+      status === 'join' ? 'bg-emerald-500/20 border-emerald-500/40' : 
+      status === 'leave' ? 'bg-red-500/20 border-red-500/40' :
+      isFull ? 'bg-red-500/10 border-red-500/20' : 'bg-black/40 border-white/5'
+    }`}>
+      <Users className={`h-3 w-3 transition-colors ${
+        status === 'join' ? 'text-emerald-400' : 
+        status === 'leave' ? 'text-red-400' :
+        isFull ? 'text-red-400' : 'text-cyan-400'
+      }`} />
+      <span className={`text-[10px] font-black transition-colors ${
+        status === 'join' ? 'text-emerald-400' : 
+        status === 'leave' ? 'text-red-400' :
+        isFull ? 'text-red-400' : 'text-zinc-400'
+      }`}>
+        {current} / {capacity}
+      </span>
     </div>
   );
 }
@@ -305,9 +356,10 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
         {isCreator && (
           <button 
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="relative z-10 rounded-lg p-2 text-zinc-600 hover:bg-red-500/10 hover:text-red-500 transition-all"
+            className="relative z-20 rounded-xl bg-red-500/10 p-2.5 text-red-500 shadow-lg shadow-red-500/10 transition-all hover:bg-red-500 hover:text-white active:scale-90"
+            title="Delete Room"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-5 w-5" />
           </button>
         )}
       </div>
@@ -320,12 +372,7 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Creator</p>
           <p className="text-xs font-bold text-zinc-300">{room.creatorName}</p>
         </div>
-        <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 border ${isFull ? 'bg-red-500/10 border-red-500/20' : 'bg-black/40 border-white/5'}`}>
-          <Users className={`h-3 w-3 ${isFull ? 'text-red-400' : 'text-cyan-400'}`} />
-          <span className={`text-[10px] font-black ${isFull ? 'text-red-400' : 'text-zinc-400'}`}>
-            {room.activeCount ?? 0} / {room.capacity}
-          </span>
-        </div>
+        <OccupancyCounter current={room.activeCount ?? 0} capacity={room.capacity ?? 20} />
       </div>
 
       <div 
@@ -341,6 +388,7 @@ function RoomCard({ room, onJoin, onDelete, isCreator }) {
     </motion.div>
   );
 }
+
 function CreateRoomModal({ onClose, onCreated }) {
   const [formData, setFormData] = useState({ title: '', description: '', capacity: 20, password: '', isMicOpen: false });
   const [loading, setLoading] = useState(false);
@@ -448,7 +496,6 @@ function CreateRoomModal({ onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Mic Open Toggle */}
           <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-black/40 p-5">
             <div className="flex items-center gap-3">
               <div className={`rounded-xl p-2 ${formData.isMicOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
@@ -519,7 +566,6 @@ function PasswordModal({ room, onClose, onJoin }) {
 function RoomView({ 
   roomId, 
   onLeave, 
-  videoRef, 
   showBottomStats, 
   setShowStats,
   collapsed,
@@ -530,7 +576,6 @@ function RoomView({
   const { scheduleSync } = useLeaderboardSync();
   const [streamsLoaded, setStreamsLoaded] = useState(false);
 
-  // Track remote camera tracks specifically
   const remoteCameraTracks = useTracks(
     [{ source: Track.Source.Camera, name: 'camera' }],
     { onlySubscribed: true }
@@ -607,21 +652,10 @@ function RoomView({
             <p className="mt-2 text-xs font-bold uppercase tracking-widest text-zinc-500">
               Connecting to {remoteParticipants.length} remote frequency{remoteParticipants.length !== 1 ? 's' : ''}...
             </p>
-            <div className="mt-12 flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  animate={{ scaleY: [1, 2, 1], opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
-                  className="h-4 w-1 rounded-full bg-fuchsia-500"
-                />
-              ))}
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <video ref={videoRef} className="hidden" playsInline muted />
       <div className="flex h-full flex-1 overflow-hidden relative">
         <motion.aside 
           initial={false}
@@ -640,7 +674,6 @@ function RoomView({
         </motion.aside>
 
         <main className="flex-1 overflow-y-auto pb-24 relative">
-          {/* Toggle Sidebar Button (Desktop) */}
           <button 
             onClick={onToggleCollapse}
             className="absolute left-0 top-1/2 -translate-y-1/2 z-40 hidden lg:flex h-12 w-6 items-center justify-center rounded-r-xl bg-white/5 border border-l-0 border-white/10 text-zinc-500 hover:bg-white/10 hover:text-white transition-all"
@@ -715,7 +748,22 @@ function RoomView({
                       <div className="flex flex-wrap gap-4 flex-1">
                         <StatBox label="Today MCQ" value={todaySolved} color="text-fuchsia-400" icon={<Zap className="h-3 w-3" />} />
                         <StatBox label="Bio Pages" value={todayPages} color="text-cyan-400" icon={<Zap className="h-3 w-3" />} />
-                        <StatBox label="Velocity" value={activityTotal > 0 ? Math.round(activityTotal / (studyMinutes / 60 || 1)) : 0} color="text-emerald-400" suffix=" /h" icon={<MousePointer2 className="h-3 w-3" />} />
+                        <div className="relative group/velocity flex-grow min-w-[140px]">
+                          <StatBox 
+                            label="Velocity" 
+                            value={activityTotal > 0 ? Math.round(activityTotal / (studyMinutes / 60 || 1)) : 0} 
+                            color="text-emerald-400" 
+                            suffix=" /h" 
+                            icon={<MousePointer2 className="h-3 w-3" />} 
+                          />
+                          <button
+                            onClick={() => useTrackerStore.getState().resetVelocity()}
+                            className="absolute top-3 right-3 rounded-full bg-white/5 p-1.5 text-zinc-500 opacity-0 group-hover/velocity:opacity-100 transition-all hover:bg-white/10 hover:text-zinc-300"
+                            title="Reset Velocity"
+                          >
+                            <RefreshCcw className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
                         <StatBox label="Rank" value={rank.label} color="chroma-text" icon={<Trophy className="h-3 w-3" />} isText />
                         <StatBox label="Streak" value={streak} color="text-orange-400" suffix="d" icon={<Zap className="h-3 w-3" />} />
                         <StatBox label="Activity" value={activityTotal} color="text-indigo-400" icon={<Zap className="h-3 w-3" />} />
@@ -749,7 +797,6 @@ function RoomView({
         </main>
       </div>
       <RoomAudioRenderer />
-      <FaceStudyTopBar />
     </>
   );
 }
@@ -787,8 +834,7 @@ function StudyGrid({ isMicOpen }) {
 
   const { pinnedUsers, gridTileSize } = useLiveRoomStore();
 
-  // Filter to only show one tile per participant (prefer camera)
-  const participantTracks = useMemo(() => {
+  const sortedTracks = useMemo(() => {
     const map = new Map();
     tracks.forEach(t => {
       const identity = t.participant.identity;
@@ -797,18 +843,19 @@ function StudyGrid({ isMicOpen }) {
         map.set(identity, t);
       }
     });
-    return Array.from(map.values());
-  }, [tracks]);
-
-  const sortedTracks = participantTracks.sort((a, b) => {
-    const aIdentity = a.participant.identity;
-    const bIdentity = b.participant.identity;
-    if (pinnedUsers.includes(aIdentity) && !pinnedUsers.includes(bIdentity)) return -1;
-    if (!pinnedUsers.includes(aIdentity) && pinnedUsers.includes(bIdentity)) return 1;
-    if (a.participant.isLocal && !b.participant.isLocal) return -1;
-    if (!a.participant.isLocal && b.participant.isLocal) return 1;
-    return 0;
-  });
+    
+    const participantTracks = Array.from(map.values());
+    
+    return participantTracks.sort((a, b) => {
+      const aIdentity = a.participant.identity;
+      const bIdentity = b.participant.identity;
+      if (pinnedUsers.includes(aIdentity) && !pinnedUsers.includes(bIdentity)) return -1;
+      if (!pinnedUsers.includes(aIdentity) && pinnedUsers.includes(bIdentity)) return 1;
+      if (a.participant.isLocal && !b.participant.isLocal) return -1;
+      if (!a.participant.isLocal && b.participant.isLocal) return 1;
+      return 0;
+    });
+  }, [tracks, pinnedUsers]);
 
   const gridCols = {
     small: 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6',
@@ -825,7 +872,7 @@ function StudyGrid({ isMicOpen }) {
           isMicOpen={isMicOpen}
         />
       ))}
-      {participantTracks.length === 0 && (
+      {sortedTracks.length === 0 && (
         <div className="col-span-full flex h-64 flex-col items-center justify-center rounded-[3rem] border-2 border-dashed border-white/5 bg-white/5">
           <p className="text-sm font-bold uppercase tracking-widest text-zinc-700 italic">Waiting for Study Collective...</p>
         </div>
@@ -834,15 +881,12 @@ function StudyGrid({ isMicOpen }) {
   );
 }
 
-/**
- * MetadataSync: Synchronizes local participant state to LiveKit metadata
- * so other participants can see "Break Mode", "Current Task", etc.
- */
 function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff }) {
   const { localParticipant } = useLocalParticipant();
+  const isUpdatingRef = useRef(false);
 
   useEffect(() => {
-    if (!localParticipant) return;
+    if (!localParticipant || isUpdatingRef.current) return;
 
     const metadata = JSON.stringify({
       task: task || 'Grinding Modules...',
@@ -853,9 +897,12 @@ function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff }) {
     });
 
     if (localParticipant.metadata !== metadata) {
-      localParticipant.setMetadata(metadata).catch(err => 
-        console.error("Failed to sync participant metadata:", err)
-      );
+      isUpdatingRef.current = true;
+      localParticipant.setMetadata(metadata)
+        .catch(err => console.warn("Metadata sync timeout (retrying later):", err))
+        .finally(() => {
+          isUpdatingRef.current = false;
+        });
     }
   }, [localParticipant, task, isBreak, rank, isMirrored, isCamOff]);
 

@@ -12,9 +12,9 @@ export function GlowCard({
   title // Used as label in minimized state
 }) {
   const preferences = useTrackerStore((s) => s.preferences);
-  const { reduceGpuUsage, uiOptimized } = preferences;
+  const { reduceGpuUsage, uiOptimized, enableGlassmorphism } = preferences;
   const isGlowEnabled = glow && !reduceGpuUsage;
-  const usePerfGlass = perf || reduceGpuUsage || uiOptimized;
+  const usePerfGlass = perf || reduceGpuUsage || uiOptimized || !enableGlassmorphism;
   const isFullHeight = className.includes("h-full");
 
   return (

@@ -144,13 +144,45 @@ export function SettingsPage() {
               <MonitorOff className="h-4 w-4 text-zinc-500 group-hover:text-cyan-400 transition" />
               <div>
                 <p className="text-sm text-zinc-200">UI Optimization Mode</p>
-                <p className="text-[10px] text-zinc-500">Disables blur, glassmorphism, and glows</p>
+                <p className="text-[10px] text-zinc-500">Disables animations, particles and heavy effects</p>
               </div>
             </div>
             <input
               type="checkbox"
               checked={preferences.uiOptimized}
               onChange={(e) => setPreferences({ uiOptimized: e.target.checked })}
+              className="h-5 w-5 rounded border-white/20 accent-cyan-500"
+            />
+          </label>
+
+          <label className="flex cursor-pointer items-center justify-between group border-t border-white/5 pt-4">
+            <div className="flex items-center gap-3">
+              <Layout className="h-4 w-4 text-zinc-500 group-hover:text-cyan-400 transition" />
+              <div>
+                <p className="text-sm text-zinc-200">Glassmorphic Blur Effects</p>
+                <p className="text-[10px] text-zinc-500">Toggle translucent frosted glass aesthetic</p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.enableGlassmorphism}
+              onChange={(e) => setPreferences({ enableGlassmorphism: e.target.checked })}
+              className="h-5 w-5 rounded border-white/20 accent-cyan-500"
+            />
+          </label>
+
+          <label className="flex cursor-pointer items-center justify-between group border-t border-white/5 pt-4">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="h-4 w-4 text-zinc-500 group-hover:text-cyan-400 transition" />
+              <div>
+                <p className="text-sm text-zinc-200">Mute on Joining Hall</p>
+                <p className="text-[10px] text-zinc-500">Automatically enter study rooms with mic disabled</p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={preferences.muteOnJoin}
+              onChange={(e) => setPreferences({ muteOnJoin: e.target.checked })}
               className="h-5 w-5 rounded border-white/20 accent-cyan-500"
             />
           </label>

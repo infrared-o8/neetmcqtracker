@@ -279,8 +279,6 @@ export function BentoDashboard() {
       />
       <MilestoneReveal milestone={activeMilestone} onDismiss={dismissMilestone} />
 
-      <FaceStudyTopBar />
-
       <MotionDiv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex flex-1 items-center gap-3">

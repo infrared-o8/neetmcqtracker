@@ -26,6 +26,8 @@ const DEFAULT_PREFERENCES = {
   aiDetectionRate: "normal", // 'normal' (1s), 'power-save' (3s), 'ultra-low' (5s)
   enableParticleEngine: true,
   reduceGpuUsage: false, // Disables complex radial gradients and filters
+  muteOnJoin: false,
+  enableGlassmorphism: true,
   pomodoroFocusMinutes: 25,
   pomodoroBreakMinutes: 5,
 };
@@ -235,6 +237,7 @@ export const useTrackerStore = create(
             : [...s.seenMilestones, id],
         })),
       setVelocityTarget: (target) => set({ velocityTarget: target }),
+      resetVelocity: () => set({ mcqTimestamps: [], pageTimestamps: [] }),
       startSession: (durationMinutes) =>
         set((state) => {
           const now = Date.now();

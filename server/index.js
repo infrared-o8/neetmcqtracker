@@ -133,10 +133,25 @@ app.post("/api/livekit/token", async (req, res) => {
 
 app.get("/api/rooms", async (req, res) => {
   try {
-    const rooms = await Room.find({}).sort({ createdAt: -1 }).lean();
+    const dbRooms = await Room.find({}).sort({ createdAt: -1 }).lean();
     
+    // Add Global Hall to the list for enrichment if not already there
+    const roomsToEnrich = [...dbRooms];
+    if (!roomsToEnrich.find(r => r.roomId === "NEET-Study-Room")) {
+      roomsToEnrich.push({
+        roomId: "NEET-Study-Room",
+        title: "Global High-Yield Hall",
+        description: "The official 24/7 focus hall for all aspirants. Open to everyone.",
+        creatorName: "System",
+        capacity: 50,
+        isPasswordProtected: false,
+        isMicOpen: false,
+        isSystem: true
+      });
+    }
+
     // Enrich with live participant counts from LiveKit
-    const enrichedRooms = await Promise.all(rooms.map(async (r) => {
+    const enrichedRooms = await Promise.all(roomsToEnrich.map(async (r) => {
       let activeCount = 0;
       try {
         const participants = await svc.listParticipants(r.roomId);
@@ -155,7 +170,8 @@ app.get("/api/rooms", async (req, res) => {
         activeCount,
         isPasswordProtected: r.isPasswordProtected,
         isMicOpen: r.isMicOpen,
-        createdAt: r.createdAt
+        createdAt: r.createdAt,
+        isSystem: r.isSystem
       };
     }));
 

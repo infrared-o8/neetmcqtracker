@@ -26,8 +26,8 @@ export function YoutubeMedia() {
     <>
       {videoId && (
         <div className="pointer-events-none fixed inset-0 -z-5 overflow-hidden" aria-hidden>
-          {/* Overlay to ensure readability of UI */}
-          <div className="absolute inset-0 z-10 bg-zinc-950/65" />
+          {/* Overlay to ensure readability of UI - Adjusted to 30% opacity for slight visibility */}
+          <div className="absolute inset-0 z-10 bg-zinc-950/30" />
           <iframe
             key={`bg-${videoId}`}
             title="Background video"

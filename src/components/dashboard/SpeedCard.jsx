@@ -1,5 +1,6 @@
 import { GlowCard } from "../ui/GlowCard";
-import { Zap, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { Zap, TrendingUp, Activity, RefreshCcw } from "lucide-react";
+import { useTrackerStore } from "../../store/useTrackerStore";
 
 export function SpeedCard({ 
   currentSpeed, 
@@ -12,6 +13,7 @@ export function SpeedCard({
   onToggleMinimize,
   className = ""
 }) {
+  const resetVelocity = useTrackerStore((s) => s.resetVelocity);
   const isMeetingTarget = velocityTarget > 0 && currentSpeed >= velocityTarget;
   const progress = Math.min((currentSpeed / (velocityTarget || 1)) * 100, 100);
   
@@ -46,6 +48,20 @@ export function SpeedCard({
         title={`Velocity · ${speedLabel}`}
         className="relative z-[1] h-full"
       >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Zap className={`h-3 w-3 ${accentColor}`} />
+            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Kinetic Engine</span>
+          </div>
+          <button 
+            onClick={(e) => { e.stopPropagation(); resetVelocity(); }}
+            className="rounded-full bg-white/5 p-1.5 text-zinc-500 hover:bg-white/10 hover:text-zinc-300 transition-all"
+            title="Reset Velocity"
+          >
+            <RefreshCcw className="h-3 w-3" />
+          </button>
+        </div>
+
         <div className="flex items-center justify-between mt-2">
           <div className="relative h-20 w-20 shrink-0">
             <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 100 100">
