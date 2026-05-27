@@ -1,6 +1,15 @@
 import express from "express";
 import cors from "cors";
-import "dotenv/config";
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from the same directory as index.js
+dotenv.config({ path: path.join(__dirname, ".env") });
+
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 import rateLimit from "express-rate-limit";
 import { ClerkExpressRequireAuth } from "@clerk/clerk-sdk-node";
@@ -328,18 +337,23 @@ app.put("/api/players/:playerId/stats", authMiddleware, requirePlayer, antiCheat
     return res.status(403).json({ error: "Identity mismatch." });
   }
 
-  const ok = await updateStats(req.playerId, req.body);
-  if (!ok) {
-    // If update failed (likely user doesn't exist yet), ensure they are registered
-    await upsertPlayer({
-      playerId: req.playerId,
-      displayName: req.body.displayName || "Aspirant",
-      decor: req.body.decor || {},
-    });
-    await updateStats(req.playerId, req.body);
+  try {
+    const ok = await updateStats(req.playerId, req.body);
+    if (!ok) {
+      // If update failed (likely user doesn't exist yet), ensure they are registered
+      await upsertPlayer({
+        playerId: req.playerId,
+        displayName: req.body.displayName || "Aspirant",
+        decor: req.body.decor || {},
+      });
+      await updateStats(req.playerId, req.body);
+    }
+    
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Stats Update Route Error:", error);
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
-  
-  res.json({ ok: true });
 });
 
 app.get("/api/leaderboard", async (req, res) => {

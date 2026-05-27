@@ -73,6 +73,8 @@ export const connectDB = async () => {
     console.log("✅ MongoDB Connected Successfully to Cloud Atlas");
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err.message);
+    // Ensure we are truly disconnected so isMongoConnected() returns false
+    await mongoose.disconnect();
     console.warn("⚠️ Falling back to In-Memory Legacy Mode.");
   }
 };
