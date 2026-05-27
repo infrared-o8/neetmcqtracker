@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { RollingNumber } from '../components/ui/RollingNumber';
 import { QuickAddControls } from '../components/QuickAddControls';
+import { AuraWrapper } from '../components/fx/AuraWrapper';
 import { useMicroRewards } from '../hooks/useMicroRewards';
 import { useLeaderboardSync } from '../hooks/useLeaderboardSync';
 import { useAuth } from "../hooks/useAuthShim";
@@ -76,6 +77,7 @@ export default function StudyRoomPage() {
   const serverUrl = useTrackerStore((s) => s.preferences.serverUrl);
   const { gridTileSize, setGridTileSize, currentTask, isBreakMode, mirrorVideo } = useLiveRoomStore();
   const { active } = useFaceStudyContext();
+  const auraId = useProfileStore((s) => s.decor.auraId || "NONE");
 
   const displayName = profileDisplayName || 'Aspirant';
   const playerId = clerkUserId || profilePlayerId;
@@ -171,15 +173,22 @@ export default function StudyRoomPage() {
 
   if (activeRoomId && token && lkUrl) {
     const isGlobal = activeRoomId === 'NEET-Study-Room';
-    // isMicOpen prop for RoomView should be true if room ALLOWS it
     const roomAllowsMic = !isGlobal && activeRoom?.isMicOpen;
-    // audio prop for LiveKitRoom should be true ONLY if user didn't mute on join
-    const audioEnabledOnStart = roomAllowsMic && !muteOnJoin;
+    const micPreferences = useTrackerStore.getState().preferences;
+    
+    // Initial audio state: false if user mutes on join, otherwise use filters
+    const audioOptions = (roomAllowsMic && !muteOnJoin) ? {
+      noiseSuppression: micPreferences.micNoiseSuppression,
+      echoCancellation: micPreferences.micVoiceIsolation,
+      autoGainControl: micPreferences.micVoiceIsolation,
+    } : false;
+
+    const isCreator = activeRoom?.creatorId === playerId || activeRoom?.creatorId === profilePlayerId;
 
     return (
       <LiveKitRoom
         video={true}
-        audio={audioEnabledOnStart} 
+        audio={audioOptions} 
         token={token}
         serverUrl={lkUrl}
         onDisconnected={leaveRoom}
@@ -193,6 +202,11 @@ export default function StudyRoomPage() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           isMicOpen={roomAllowsMic}
+          isCreator={isCreator}
+          onDelete={() => {
+            deleteRoom(activeRoomId);
+            leaveRoom();
+          }}
         />
       </LiveKitRoom>
     );
@@ -562,7 +576,6 @@ function PasswordModal({ room, onClose, onJoin }) {
     </motion.div>
   );
 }
-
 function RoomView({ 
   roomId, 
   onLeave, 
@@ -570,11 +583,16 @@ function RoomView({
   setShowStats,
   collapsed,
   onToggleCollapse,
-  isMicOpen
+  isMicOpen,
+  isCreator,
+  onDelete
 }) {
   const { onIncrement } = useMicroRewards();
   const { scheduleSync } = useLeaderboardSync();
   const [streamsLoaded, setStreamsLoaded] = useState(false);
+  const auraId = useProfileStore((s) => s.decor.auraId);
+
+  // ... (rest of implementation)
 
   const remoteCameraTracks = useTracks(
     [{ source: Track.Source.Camera, name: 'camera' }],
@@ -635,6 +653,7 @@ function RoomView({
         rank={rank.label} 
         isMirrored={mirrorVideo}
         isCamOff={!active}
+        auraId={auraId}
       />
       <AnimatePresence>
         {!streamsLoaded && (
@@ -700,6 +719,15 @@ function RoomView({
               </div>
 
               <div className="flex items-center gap-3">
+                {isCreator && (
+                  <button 
+                    onClick={() => onDelete()}
+                    className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all hover:bg-red-500 hover:text-white"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Delete Room
+                  </button>
+                )}
                 <button 
                   onClick={onLeave}
                   className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-500 transition-all hover:bg-red-500 hover:text-white"
@@ -749,20 +777,22 @@ function RoomView({
                         <StatBox label="Today MCQ" value={todaySolved} color="text-fuchsia-400" icon={<Zap className="h-3 w-3" />} />
                         <StatBox label="Bio Pages" value={todayPages} color="text-cyan-400" icon={<Zap className="h-3 w-3" />} />
                         <div className="relative group/velocity flex-grow min-w-[140px]">
-                          <StatBox 
-                            label="Velocity" 
-                            value={activityTotal > 0 ? Math.round(activityTotal / (studyMinutes / 60 || 1)) : 0} 
-                            color="text-emerald-400" 
-                            suffix=" /h" 
-                            icon={<MousePointer2 className="h-3 w-3" />} 
-                          />
-                          <button
-                            onClick={() => useTrackerStore.getState().resetVelocity()}
-                            className="absolute top-3 right-3 rounded-full bg-white/5 p-1.5 text-zinc-500 opacity-0 group-hover/velocity:opacity-100 transition-all hover:bg-white/10 hover:text-zinc-300"
-                            title="Reset Velocity"
-                          >
-                            <RefreshCcw className="h-2.5 w-2.5" />
-                          </button>
+                          <AuraWrapper presetId="NEUTRON_ACCELERATOR" allowEscape={true}>
+                            <StatBox 
+                              label="Velocity" 
+                              value={activityTotal > 0 ? Math.round(activityTotal / (studyMinutes / 60 || 1)) : 0} 
+                              color="text-emerald-400" 
+                              suffix=" /h" 
+                              icon={<MousePointer2 className="h-3 w-3" />} 
+                            />
+                            <button
+                              onClick={() => useTrackerStore.getState().resetVelocity()}
+                              className="absolute top-3 right-3 rounded-full bg-white/5 p-1.5 text-zinc-500 opacity-0 group-hover/velocity:opacity-100 transition-all hover:bg-white/10 hover:text-zinc-300"
+                              title="Reset Velocity"
+                            >
+                              <RefreshCcw className="h-2.5 w-2.5" />
+                            </button>
+                          </AuraWrapper>
                         </div>
                         <StatBox label="Rank" value={rank.label} color="chroma-text" icon={<Trophy className="h-3 w-3" />} isText />
                         <StatBox label="Streak" value={streak} color="text-orange-400" suffix="d" icon={<Zap className="h-3 w-3" />} />
@@ -780,12 +810,14 @@ function RoomView({
                           >BIO</button>
                         </div>
                         <div className="scale-90 lg:scale-100">
-                          <QuickAddControls
-                            onAdd={handleAdd}
-                            label={isPages ? "Page" : "MCQ"}
-                            showCombo={momentumChain >= 2}
-                            comboCount={momentumChain}
-                          />
+                          <AuraWrapper presetId="VOID_APEX_OVERDRIVE" allowEscape={true}>
+                            <QuickAddControls
+                              onAdd={handleAdd}
+                              label={isPages ? "Page" : "MCQ"}
+                              showCombo={momentumChain >= 2}
+                              comboCount={momentumChain}
+                            />
+                          </AuraWrapper>
                         </div>
                       </div>
                     </div>
@@ -881,7 +913,7 @@ function StudyGrid({ isMicOpen }) {
   );
 }
 
-function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff }) {
+function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff, auraId }) {
   const { localParticipant } = useLocalParticipant();
   const isUpdatingRef = useRef(false);
 
@@ -893,7 +925,8 @@ function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff }) {
       isBreak,
       rank,
       isMirrored,
-      isCamOff
+      isCamOff,
+      auraId
     });
 
     if (localParticipant.metadata !== metadata) {

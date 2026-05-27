@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { Package, Sparkles, X, ChevronRight, Trophy } from 'lucide-react';
+import { Package, Sparkles, X, ChevronRight, Trophy, Zap } from 'lucide-react';
 import { RARITY_TIERS, rollLoot } from '../../utils/lootEngine';
 import { useProfileStore } from '../../store/useProfileStore';
+import { AuraWrapper } from '../fx/AuraWrapper';
 
 export function CaseUnlockView({ crateType, onDismiss, onSave }) {
   const [isRevealing, setIsRevealing] = useState(false);
@@ -104,13 +105,22 @@ export function CaseUnlockView({ crateType, onDismiss, onSave }) {
                     {wonItem.label}
                   </h3>
                   <p className="mt-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                    {wonItem.type === 'title' ? 'Exclusive Profile Title' : 'Premium Frame Decor'}
+                    {wonItem.type === 'title' ? 'Exclusive Profile Title' : 
+                     wonItem.type === 'frame' ? 'Premium Frame Decor' : 'Elite Aura Effect'}
                   </p>
 
                   <div className="mt-8 flex justify-center">
                     {wonItem.type === 'title' ? (
                       <div className="rounded-lg bg-white/5 px-4 py-2 font-mono text-sm text-zinc-300 border border-white/5">
                         "{wonItem.label}"
+                      </div>
+                    ) : wonItem.type === 'aura' ? (
+                      <div className="h-24 w-40 relative">
+                        <AuraWrapper presetId={wonItem.id} allowEscape={true}>
+                          <div className="h-full w-full rounded-xl border border-white/20 bg-black/40 flex items-center justify-center">
+                            <Zap className="h-8 w-8 text-white animate-pulse" style={{ color: wonItem.rarityData.color }} />
+                          </div>
+                        </AuraWrapper>
                       </div>
                     ) : (
                       <div className={`h-20 w-32 rounded-xl border-2 ${wonItem.style} opacity-80`} />

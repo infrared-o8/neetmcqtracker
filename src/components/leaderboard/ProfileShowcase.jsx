@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProfileDecorCard } from "./ProfileDecorCard";
+import { AuraWrapper } from "../fx/AuraWrapper";
 import { ParticleEngine } from "../ParticleEngine";
 import { FRAMES, DEFAULT_DECOR } from "../../data/profileDecor";
 import { useTrackerStore } from "../../store/useTrackerStore";
@@ -57,7 +58,9 @@ export function ProfileShowcase({ player, open, onClose, onPanelEnter, onPanelLe
             onMouseLeave={onPanelLeave}
             onClick={(e) => e.stopPropagation()}
           >
-            <ProfileDecorCard player={player} />
+            <AuraWrapper presetId={decor.auraId} allowEscape={true}>
+              <ProfileDecorCard player={player} />
+            </AuraWrapper>
             <p className="mt-2 text-center text-[10px] text-zinc-500">
               Press Esc or click outside to close
             </p>

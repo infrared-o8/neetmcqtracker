@@ -31,17 +31,13 @@ export function QuickAddControls({ onAdd, label = "MCQ", showCombo = false, comb
       {/* Desktop View (In-Grid) */}
       <div className="hidden md:flex flex-col items-center gap-4">
         <FloatingDelta deltas={deltas} />
-        <MagneticButton
+        <motion.button
           onClick={() => fire(1)}
+          whileTap={{ scale: 0.95 }}
           className="group relative flex h-28 w-28 items-center justify-center rounded-full border border-fuchsia-300/30 bg-gradient-to-br from-fuchsia-500/80 to-cyan-500/80 text-5xl font-semibold text-white shadow-[0_0_50px_rgba(168,85,247,0.45)]"
         >
-          <motion.span
-            className="absolute inset-0 rounded-full border border-white/30"
-            animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}
-            transition={{ duration: 1.8, repeat: Infinity }}
-          />
           <span className="relative z-10">+</span>
-        </MagneticButton>
+        </motion.button>
         <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-400">
           Tap, Space, or +5 · {label}
         </p>

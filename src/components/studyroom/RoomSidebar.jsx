@@ -49,7 +49,13 @@ export function RoomSidebar({ participantCount = 0, isMicOpen = false }) {
   const toggleMic = async () => {
     if (!localParticipant || !isMicOpen) return;
     const nextState = isMuted; // If currently muted, we want to enable (nextState = true)
-    await localParticipant.setMicrophoneEnabled(nextState);
+    
+    const prefs = useTrackerStore.getState().preferences;
+    await localParticipant.setMicrophoneEnabled(nextState, {
+      noiseSuppression: prefs.micNoiseSuppression,
+      echoCancellation: prefs.micVoiceIsolation,
+      autoGainControl: prefs.micVoiceIsolation,
+    });
     setIsMuted(!nextState);
   };
 

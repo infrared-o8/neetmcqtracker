@@ -7,7 +7,6 @@ export function QuickAddButton({ onAdd }) {
   return (
     <MotionButton
       onClick={onAdd}
-      whileHover={{ y: -4, scale: 1.03 }}
       whileTap={{ scale: 0.95 }}
       transition={{ duration: 0.24 }}
       className="group relative mx-auto mt-4 flex h-24 w-24 min-h-16 min-w-16 items-center justify-center rounded-full border border-fuchsia-300/30 bg-gradient-to-br from-fuchsia-500/80 to-cyan-500/80 text-5xl font-semibold text-white shadow-[0_0_50px_rgba(168,85,247,0.45)] md:mt-6 md:h-36 md:w-36 md:text-7xl"

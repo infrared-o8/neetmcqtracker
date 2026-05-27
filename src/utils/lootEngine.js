@@ -4,6 +4,7 @@
  */
 
 import { FRAMES } from '../data/profileDecor';
+import { FX_PRESETS } from '../data/fxPresets';
 
 export const RARITY_TIERS = {
   common: { label: 'Common', chance: 0.65, color: '#71717a', accent: 'zinc' },
@@ -13,12 +14,20 @@ export const RARITY_TIERS = {
   mythic: { label: 'Mythic', chance: 0.005, color: '#ef4444', accent: 'air-apex' },
 };
 
-// Build the frames array directly from the FRAMES dictionary to keep a single source of truth
+// Build the frames array directly from the FRAMES dictionary
 const frameItems = Object.entries(FRAMES).map(([id, data]) => ({
   id,
-  label: data.name || id.toUpperCase(), // Using ID if name is missing
+  label: data.name || id.toUpperCase(),
   rarity: data.rarity,
   style: `${data.border} ${data.glow}`
+}));
+
+// Build the auras array from FX_PRESETS
+const auraItems = Object.entries(FX_PRESETS).map(([id, data]) => ({
+  id,
+  label: data.name,
+  rarity: data.tier.toLowerCase(),
+  colors: data.colors
 }));
 
 export const LOOT_ITEMS = {
@@ -34,7 +43,8 @@ export const LOOT_ITEMS = {
     { id: 't9', label: 'AIR < 100 Catalyst', rarity: 'mythic' },
     { id: 't10', label: 'The Kota Legend', rarity: 'mythic' },
   ],
-  frames: frameItems
+  frames: frameItems,
+  auras: auraItems
 };
 
 /** Roll for an item based on weighted probability */
@@ -52,17 +62,26 @@ export function rollLoot() {
     }
   }
 
-  // Pick type (Title vs Frame)
-  const isTitle = Math.random() > 0.5;
-  const pool = isTitle ? LOOT_ITEMS.titles : LOOT_ITEMS.frames;
+  // Pick type (Title vs Frame vs Aura)
+  const types = ['title', 'frame', 'aura'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const pool = LOOT_ITEMS[`${type}s`];
   const tierItems = pool.filter(item => item.rarity === selectedRarity);
   
-  // Fallback to lower rarity if no items in current tier pool
-  if (tierItems.length === 0) return LOOT_ITEMS.titles[0];
+  // Fallback to title if no items in current tier pool for that type
+  if (tierItems.length === 0) {
+    const backupPool = LOOT_ITEMS.titles.filter(item => item.rarity === selectedRarity);
+    if (backupPool.length === 0) return LOOT_ITEMS.titles[0];
+    return {
+      ...backupPool[Math.floor(Math.random() * backupPool.length)],
+      type: 'title',
+      rarityData: RARITY_TIERS[selectedRarity]
+    };
+  }
 
   return {
     ...tierItems[Math.floor(Math.random() * tierItems.length)],
-    type: isTitle ? 'title' : 'frame',
+    type,
     rarityData: RARITY_TIERS[selectedRarity]
   };
 }

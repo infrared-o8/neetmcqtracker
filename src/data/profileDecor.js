@@ -2,6 +2,7 @@ export const DEFAULT_DECOR = {
   bannerId: "nebula",
   frameId: "c1",
   titleId: "",
+  auraId: "NONE",
   accent: "#a855f7",
   avatarEmoji: "📚",
 };

@@ -28,6 +28,8 @@ const DEFAULT_PREFERENCES = {
   reduceGpuUsage: false, // Disables complex radial gradients and filters
   muteOnJoin: false,
   enableGlassmorphism: true,
+  micNoiseSuppression: true,
+  micVoiceIsolation: false,
   pomodoroFocusMinutes: 25,
   pomodoroBreakMinutes: 5,
 };
@@ -198,10 +200,28 @@ export const useTrackerStore = create(
       ...initialState,
       ensureToday: () => set((current) => applyRollover(current)),
       setTrackingMode: (trackingMode) => set({ trackingMode }),
-      addMcq: (amount = 1) =>
-        set((current) => applyActivityIncrement(current, { type: "mcq", amount })),
-      addPages: (amount = 1) =>
-        set((current) => applyActivityIncrement(current, { type: "pages", amount })),
+      addMcq: (amount = 1) => {
+        set((current) => {
+          const next = applyActivityIncrement(current, { type: "mcq", amount });
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("neet:activity", { 
+              detail: { type: "mcq", amount, momentum: next.momentumChain } 
+            }));
+          }
+          return next;
+        });
+      },
+      addPages: (amount = 1) => {
+        set((current) => {
+          const next = applyActivityIncrement(current, { type: "pages", amount });
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("neet:activity", { 
+              detail: { type: "pages", amount, momentum: next.momentumChain } 
+            }));
+          }
+          return next;
+        });
+      },
       setDailyGoal: (goal) =>
         set((state) => {
           const today = getTodayKey();

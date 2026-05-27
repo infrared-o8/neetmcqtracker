@@ -10,6 +10,7 @@ import { LayoutDashboard, RefreshCcw } from "lucide-react";
 import { GoalRing } from "../components/GoalRing";
 import { HistoryChart } from "../components/HistoryChart";
 import { QuickAddControls } from "../components/QuickAddControls";
+import { AuraWrapper } from "../components/fx/AuraWrapper";
 import { ContributionGrid } from "../components/ContributionGrid";
 import { RankLadder } from "../components/RankLadder";
 import { GlowCard } from "../components/ui/GlowCard";
@@ -131,6 +132,7 @@ export function BentoDashboard() {
   const dashboardLayout = useTrackerStore((s) => s.dashboardLayout);
   const setDashboardLayout = useTrackerStore((s) => s.setDashboardLayout);
   const resetDashboardLayout = useTrackerStore((s) => s.resetDashboardLayout);
+  const auraId = useProfileStore((s) => s.decor.auraId || "NONE");
 
   const { onIncrement, playLevelUp } = useMicroRewards();
   const { scheduleSync } = useLeaderboardSync();
@@ -326,30 +328,32 @@ export function BentoDashboard() {
 
           <div key="today">
             <div className="h-full w-full">
-              <StatGlowCard
-                outline="cyan"
-                rankPulse={rankPulse}
-                goalGlow={goalMet}
-                perf={true}
-                className="group h-full"
-                id="today"
-                minimized={isMinimized("today")}
-                onToggleMinimize={handleToggleMinimize}
-                title={isPages ? "Today · Pages" : "Today · MCQs"}
-              >
-                <div className="drag-handle cursor-move h-full w-full">
-                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
-                    Today · {isPages ? "Pages" : "MCQs"}
-                  </p>
-                  <p className="mt-2 text-4xl md:text-5xl font-semibold text-white">
-                    <RollingNumber value={todayCount} />
-                  </p>
+              <AuraWrapper presetId={auraId} allowEscape={true}>
+                <StatGlowCard
+                  outline="cyan"
+                  rankPulse={rankPulse}
+                  goalGlow={goalMet}
+                  perf={true}
+                  className="group h-full"
+                  id="today"
+                  minimized={isMinimized("today")}
+                  onToggleMinimize={handleToggleMinimize}
+                  title={isPages ? "Today · Pages" : "Today · MCQs"}
+                >
+                  <div className="drag-handle cursor-move h-full w-full">
+                    <p className="text-xs uppercase tracking-[0.22em] text-zinc-400 transition-colors group-hover:text-cyan-200/90">
+                      Today · {isPages ? "Pages" : "MCQs"}
+                    </p>
+                    <p className="mt-2 text-4xl md:text-5xl font-semibold text-white">
+                      <RollingNumber value={todayCount} />
+                    </p>
 
-                  {isCombo && (
-                    <span className="combo-badge mt-2 inline-block">Combo ×{Math.min(momentumChain, 99)}</span>
-                  )}
-                </div>
-              </StatGlowCard>
+                    {isCombo && (
+                      <span className="combo-badge mt-2 inline-block">Combo ×{Math.min(momentumChain, 99)}</span>
+                    )}
+                  </div>
+                </StatGlowCard>
+              </AuraWrapper>
             </div>
           </div>
 
@@ -435,24 +439,26 @@ export function BentoDashboard() {
 
           <div key="quick">
             <div className="h-full w-full">
-              <GlowCard 
-                glow={goalMet} 
-                id="quick"
-                minimized={isMinimized("quick")}
-                onToggleMinimize={handleToggleMinimize}
-                title="Quick add"
-                className="group h-full"
-              >
-                <div className="drag-handle cursor-move mb-2 w-full">
-                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Quick add</p>
-                </div>
-                <QuickAddControls
-                  onAdd={handleAdd}
-                  label={isPages ? "Page" : "MCQ"}
-                  showCombo={isCombo}
-                  comboCount={momentumChain}
-                />
-              </GlowCard>
+              <AuraWrapper presetId="VOID_APEX_OVERDRIVE">
+                <GlowCard 
+                  glow={goalMet} 
+                  id="quick"
+                  minimized={isMinimized("quick")}
+                  onToggleMinimize={handleToggleMinimize}
+                  title="Quick add"
+                  className="group h-full"
+                >
+                  <div className="drag-handle cursor-move mb-2 w-full">
+                    <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Quick add</p>
+                  </div>
+                  <QuickAddControls
+                    onAdd={handleAdd}
+                    label={isPages ? "Page" : "MCQ"}
+                    showCombo={isCombo}
+                    comboCount={momentumChain}
+                  />
+                </GlowCard>
+              </AuraWrapper>
             </div>
           </div>
 
@@ -491,17 +497,19 @@ export function BentoDashboard() {
 
           <div key="speed">
             <div className="h-full w-full">
-              <SpeedCard
-                currentSpeed={currentSpeed}
-                speedLabel={speedLabel}
-                velocityTarget={velocityTarget}
-                setVelocityTarget={setVelocityTarget}
-                bestMomentumChain={bestMomentumChain}
-                id="speed"
-                className="group h-full drag-handle cursor-move"
-                minimized={isMinimized("speed")}
-                onToggleMinimize={handleToggleMinimize}
-              />
+              <AuraWrapper presetId="NEUTRON_ACCELERATOR">
+                <SpeedCard
+                  currentSpeed={currentSpeed}
+                  speedLabel={speedLabel}
+                  velocityTarget={velocityTarget}
+                  setVelocityTarget={setVelocityTarget}
+                  bestMomentumChain={bestMomentumChain}
+                  id="speed"
+                  className="group h-full drag-handle cursor-move"
+                  minimized={isMinimized("speed")}
+                  onToggleMinimize={handleToggleMinimize}
+                />
+              </AuraWrapper>
             </div>
           </div>
 

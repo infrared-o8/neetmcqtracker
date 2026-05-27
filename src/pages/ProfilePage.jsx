@@ -12,7 +12,8 @@ import {
   Trophy, 
   ChevronRight,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertCircle
 } from "lucide-react";
 import {
   ACCENTS,
@@ -22,6 +23,8 @@ import {
   FRAMES,
   TITLES,
 } from "../data/profileDecor";
+import { FX_PRESETS } from "../data/fxPresets";
+import { AuraWrapper } from "../components/fx/AuraWrapper";
 import { CaseUnlockView } from "../components/dashboard/CaseUnlockView";
 
 export default function ProfilePage() {
@@ -37,6 +40,7 @@ export default function ProfilePage() {
   const { pushStats } = useLeaderboardSync({ enabled: false });
   const [status, setStatus] = useState("");
   const [openingCrate, setOpeningCrate] = useState(false);
+  const preferences = useTrackerStore(s => s.preferences);
 
   const saveProfile = async () => {
     await pushStats();
@@ -44,8 +48,18 @@ export default function ProfilePage() {
     setTimeout(() => setStatus(""), 3000);
   };
 
+  const handleAuraSelect = (id) => {
+    setDecor({ auraId: id });
+    saveProfile();
+    
+    if (preferences.uiOptimized || preferences.reduceGpuUsage || !preferences.enableGlassmorphism) {
+      alert("⚠️ Optimization Alert: Your current settings (UI Optimization or Reduced GPU Usage) prevent Aura effects from being rendered. Disable them in Settings to see your equipped Aura.");
+    }
+  };
+
   const unlockedTitles = unlockedItems.filter(i => i.type === 'title');
   const unlockedFrames = unlockedItems.filter(i => i.type === 'frame');
+  const unlockedAuras = unlockedItems.filter(i => i.type === 'aura');
 
   // Group pending crates by type for stacking
   const groupedCrates = pendingCrates.reduce((acc, type) => {
@@ -68,6 +82,15 @@ export default function ProfilePage() {
       acc[item.label] = { ...item, count: 0 };
     }
     acc[item.label].count += 1;
+    return acc;
+  }, {});
+
+  // Group auras by ID for stacking
+  const groupedAuras = unlockedAuras.reduce((acc, item) => {
+    if (!acc[item.id]) {
+      acc[item.id] = { ...item, count: 0 };
+    }
+    acc[item.id].count += 1;
     return acc;
   }, {});
 
@@ -100,37 +123,39 @@ export default function ProfilePage() {
         {/* Left Column: Preview & Basic Info */}
         <div className="space-y-6">
           <section className="genz-glass overflow-hidden rounded-[2.5rem] border-white/10 p-2 shadow-2xl">
-             <div
-                className={`overflow-hidden rounded-[2.3rem] border-2 transition-all duration-500 ${
-                  decor.customFrameStyle || FRAMES[decor.frameId]?.border || "border-zinc-800"
-                } ${FRAMES[decor.frameId]?.glow || ""}`}
-                style={{ background: BANNERS[decor.bannerId] }}
-              >
-                <div className="bg-black/40 p-8 text-center backdrop-blur-md">
-                  <div className="relative mx-auto h-24 w-24 mb-4">
-                    <div className="absolute inset-0 blur-2xl opacity-20" style={{ backgroundColor: decor.accent }} />
-                    <span className="relative z-10 text-6xl drop-shadow-2xl select-none">
-                      {decor.avatarEmoji || DEFAULT_DECOR.avatarEmoji}
-                    </span>
-                  </div>
-                  <h3 className="text-2xl font-black text-white truncate px-2">{displayName}</h3>
-                  {decor.titleId && (
-                    <p className="chroma-text mt-1 text-xs font-black uppercase tracking-widest">{decor.titleId}</p>
-                  )}
-                  
-                  <div className="mt-6 flex items-center justify-center gap-4 border-t border-white/5 pt-6">
-                    <div className="text-center">
-                      <p className="text-[10px] font-bold text-zinc-500 uppercase">Crates</p>
-                      <p className="text-sm font-black text-white">{totalCratesOpened}</p>
+             <AuraWrapper presetId={decor.auraId} allowEscape={true}>
+               <div
+                  className={`overflow-hidden rounded-[2.3rem] border-2 transition-all duration-500 ${
+                    decor.customFrameStyle || FRAMES[decor.frameId]?.border || "border-zinc-800"
+                  } ${FRAMES[decor.frameId]?.glow || ""}`}
+                  style={{ background: BANNERS[decor.bannerId] }}
+                >
+                  <div className="bg-black/40 p-8 text-center backdrop-blur-md">
+                    <div className="relative mx-auto h-24 w-24 mb-4">
+                      <div className="absolute inset-0 blur-2xl opacity-20" style={{ backgroundColor: decor.accent }} />
+                      <span className="relative z-10 text-6xl drop-shadow-2xl select-none">
+                        {decor.avatarEmoji || DEFAULT_DECOR.avatarEmoji}
+                      </span>
                     </div>
-                    <div className="h-6 w-px bg-white/5" />
-                    <div className="text-center">
-                      <p className="text-[10px] font-bold text-zinc-500 uppercase">Collection</p>
-                      <p className="text-sm font-black text-white">{unlockedItems.length}</p>
+                    <h3 className="text-2xl font-black text-white truncate px-2">{displayName}</h3>
+                    {decor.titleId && (
+                      <p className="chroma-text mt-1 text-xs font-black uppercase tracking-widest">{decor.titleId}</p>
+                    )}
+
+                    <div className="mt-6 flex items-center justify-center gap-4 border-t border-white/5 pt-6">
+                      <div className="text-center">
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase">Crates</p>
+                        <p className="text-sm font-black text-white">{totalCratesOpened}</p>
+                      </div>
+                      <div className="h-6 w-px bg-white/5" />
+                      <div className="text-center">
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase">Collection</p>
+                        <p className="text-sm font-black text-white">{unlockedItems.length}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-             </div>
+               </div>
+             </AuraWrapper>
           </section>
 
           <section className="genz-glass rounded-3xl p-6 border-white/5">
@@ -210,15 +235,75 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          {/* LOOT INVENTORY - UNLOCKED ITEMS */}
           <section className="genz-glass rounded-[2rem] border-white/5 p-8">
             <h2 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3 italic mb-8">
               <Award className="h-6 w-6 text-emerald-400" /> Loot Collection
             </h2>
 
             <div className="space-y-8">
-               {/* Titles */}
-               <div>
+              {/* Auras */}
+              <div>
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                  <Sparkles className="h-3 w-3" /> Elite Aura Collection
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => handleAuraSelect("NONE")}
+                    className={`rounded-2xl border-2 p-4 text-left transition-all ${
+                      decor.auraId === "NONE" ? "border-white bg-white/10" : "border-white/5 bg-black/40 opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <p className="text-xs font-black uppercase text-white">No Aura</p>
+                    <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">Default state</p>
+                  </button>
+
+                  {/* All Common rarity auras are unlocked by default for testing */}
+                  {Object.entries(FX_PRESETS).filter(([id, p]) => p.tier === 'COMMON').map(([id, p]) => (
+                    <button
+                      key={id}
+                      onClick={() => handleAuraSelect(id)}
+                      className={`rounded-2xl border-2 p-4 text-left transition-all ${
+                        decor.auraId === id ? "border-white ring-2 ring-white/20 scale-[1.05] bg-white/5" : "border-white/5 bg-black/40 opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <p className="text-xs font-black uppercase text-white truncate">{p.name}</p>
+                      <p className="text-[8px] font-bold uppercase mt-1 text-zinc-500">Starter Aura</p>
+                    </button>
+                  ))}
+
+                  {/* Loot Auras (Unlocked) */}
+                  {Object.values(groupedAuras).map(item => {
+                    const preset = FX_PRESETS[item.id];
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleAuraSelect(item.id)}
+                        className={`relative overflow-hidden rounded-2xl border-2 p-4 text-left transition-all ${
+                          decor.auraId === item.id ? "ring-2 ring-white scale-[1.05]" : "opacity-80 hover:opacity-100"
+                        }`}
+                        style={{ 
+                          borderColor: item.rarityData.color,
+                          backgroundColor: `${item.rarityData.color}15`
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-black uppercase text-white truncate flex-1">{preset?.name || item.label}</p>
+                          <Sparkles className="h-3 w-3" style={{ color: item.rarityData.color }} />
+                        </div>
+                        <p className="text-[8px] font-black uppercase mt-1" style={{ color: item.rarityData.color }}>{item.rarityData.label} PULL</p>
+                        {item.count > 1 && (
+                          <div className="absolute top-0 right-0 bg-black/60 px-1.5 py-0.5 rounded-bl-lg text-[8px] border-l border-b border-white/10 text-white font-black">
+                            x{item.count}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Titles */}
+              <div>
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                   <Layout className="h-3 w-3" /> Unlocked Titles
                 </p>

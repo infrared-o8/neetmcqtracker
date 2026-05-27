@@ -12,10 +12,11 @@ import {
 } from '@livekit/components-react';
 import { Track, RoomEvent, DataPacket_Kind } from 'livekit-client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Coffee, User, Flame, Zap, Bell, Mic, MicOff } from 'lucide-react';
+import { Pin, Coffee, User, Flame, Zap, Bell, Mic, MicOff, Sparkles } from 'lucide-react';
 import { useLiveRoomStore } from '../../store/useLiveRoomStore';
 import { useTrackerStore } from '../../store/useTrackerStore';
 import { useThock } from '../../hooks/useThock';
+import { AuraWrapper } from '../fx/AuraWrapper';
 
 const AudioRenderer = React.memo(({ identity }) => {
   const tracks = useTracks([{ source: Track.Source.Microphone }], { onlySubscribed: true });
@@ -134,113 +135,116 @@ export const ParticipantTile = React.memo(function ParticipantTile({ trackRef, i
   }, [room, participant.isLocal]);
 
   const isMicEnabled = participant.isMicrophoneEnabled;
+  const auraId = parsedMetadata.auraId || "NONE";
 
   return (
-    <motion.div 
-      layout="position"
-      className={`relative aspect-video overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 ${!reduceGpuUsage && !uiOptimized ? 'backdrop-blur-md shadow-lg shadow-black/20' : ''} transition-all duration-500 ${
-        isPinned ? 'ring-2 ring-fuchsia-500/50' : ''
-      } ${isSpeaking ? 'ring-2 ring-emerald-500/50' : ''}`}
-      onDoubleClick={handlePin}
-    >
-      <div className={`h-full w-full transition-opacity duration-500 ${isBreak ? 'opacity-40' : 'opacity-100'}`}>
-        <ParticipantContext.Provider value={participant}>
-          <TrackRefContext.Provider value={trackRef}>
-            <CustomVideoTrack isMirrored={isMirrored} isCamOff={isCamOff} />
-            {isMicOpen && !participant.isLocal && (
-              <AudioRenderer identity={identity} />
-            )}
-          </TrackRefContext.Provider>
-        </ParticipantContext.Provider>
-      </div>
-
-      <AnimatePresence>
-        {showBoostNote && (
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-            className={`absolute left-4 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-2 rounded-xl bg-fuchsia-500 ${scale.ticker} shadow-lg shadow-fuchsia-500/40`}
-          >
-            <Bell className={`${scale.icon} animate-bounce text-white`} />
-            <span className={`${scale.text} font-bold text-white uppercase tracking-wider`}>
-              {showBoostNote} boosted!
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {isBreak && (
-        <div className={`absolute inset-0 flex items-center justify-center bg-black/20 ${!reduceGpuUsage ? 'backdrop-blur-[2px]' : ''}`}>
-          <div className="flex flex-col items-center gap-2">
-            <Coffee className={`${gridTileSize === 'small' ? 'h-5 w-5' : 'h-8 w-8'} text-fuchsia-400 animate-pulse`} />
-            <span className={`font-mono ${scale.text} text-white/90 bg-black/40 ${scale.banner} rounded-full border border-white/10`}>
-              [ Break ]
-            </span>
-          </div>
+    <AuraWrapper presetId={auraId} allowEscape={true}>
+      <motion.div 
+        layout="position"
+        className={`relative aspect-video overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 ${!reduceGpuUsage && !uiOptimized ? 'backdrop-blur-md shadow-lg shadow-black/20' : ''} transition-all duration-500 ${
+          isPinned ? 'ring-2 ring-fuchsia-500/50' : ''
+        } ${isSpeaking ? 'ring-2 ring-emerald-500/50' : ''}`}
+        onDoubleClick={handlePin}
+      >
+        <div className={`h-full w-full transition-opacity duration-500 ${isBreak ? 'opacity-40' : 'opacity-100'}`}>
+          <ParticipantContext.Provider value={participant}>
+            <TrackRefContext.Provider value={trackRef}>
+              <CustomVideoTrack isMirrored={isMirrored} isCamOff={isCamOff} />
+              {isMicOpen && !participant.isLocal && (
+                <AudioRenderer identity={identity} />
+              )}
+            </TrackRefContext.Provider>
+          </ParticipantContext.Provider>
         </div>
-      )}
 
-      <div className={`absolute ${scale.topGap} left-2 right-2 flex items-center justify-between`}>
-        <div className={`flex items-center ${scale.gap} rounded-full bg-black/50 ${scale.banner} ${!reduceGpuUsage ? 'backdrop-blur-md' : ''} border border-white/5`}>
-          <div className={`h-1.5 w-1.5 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'} ${!reduceGpuUsage && isSpeaking ? 'shadow-[0_0_8px_rgba(52,211,153,0.8)]' : ''}`} />
-          <span className={`${scale.text} font-bold text-white/90 uppercase tracking-wider truncate max-w-[80px]`}>
-            {identity} {participant.isLocal && '(You)'} <span className="text-zinc-400 font-medium opacity-70">({rank})</span>
-          </span>
+        <AnimatePresence>
+          {showBoostNote && (
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+              className={`absolute left-4 top-1/2 -translate-y-1/2 z-[60] flex items-center gap-2 rounded-xl bg-fuchsia-500 ${scale.ticker} shadow-lg shadow-fuchsia-500/40`}
+            >
+              <Bell className={`${scale.icon} animate-bounce text-white`} />
+              <span className={`${scale.text} font-bold text-white uppercase tracking-wider`}>
+                {showBoostNote} boosted!
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isBreak && (
+          <div className={`absolute inset-0 flex items-center justify-center bg-black/20 ${!reduceGpuUsage ? 'backdrop-blur-[2px]' : ''}`}>
+            <div className="flex flex-col items-center gap-2">
+              <Coffee className={`${gridTileSize === 'small' ? 'h-5 w-5' : 'h-8 w-8'} text-fuchsia-400 animate-pulse`} />
+              <span className={`font-mono ${scale.text} text-white/90 bg-black/40 ${scale.banner} rounded-full border border-white/10`}>
+                [ Break ]
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className={`absolute ${scale.topGap} left-2 right-2 flex items-center justify-between`}>
+          <div className={`flex items-center ${scale.gap} rounded-full bg-black/50 ${scale.banner} ${!reduceGpuUsage ? 'backdrop-blur-md' : ''} border border-white/5`}>
+            <div className={`h-1.5 w-1.5 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'} ${!reduceGpuUsage && isSpeaking ? 'shadow-[0_0_8px_rgba(52,211,153,0.8)]' : ''}`} />
+            <span className={`${scale.text} font-bold text-white/90 uppercase tracking-wider truncate max-w-[80px]`}>
+              {identity} {participant.isLocal && '(You)'} <span className="text-zinc-400 font-medium opacity-70">({rank})</span>
+            </span>
+            
+            <div className={`ml-1 flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all ${
+              isMicEnabled 
+                ? (isSpeaking ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/40 border-white/5 text-zinc-500')
+                : 'bg-red-500/10 border-red-500/20 text-red-400'
+            }`}>
+              {isMicEnabled ? (
+                isSpeaking ? <Mic className={`${scale.icon} animate-pulse`} /> : <Mic className={scale.icon} />
+              ) : (
+                <MicOff className={scale.icon} />
+              )}
+              {!isMicEnabled && <span className="text-[7px] font-black uppercase tracking-tighter">Muted</span>}
+            </div>
+          </div>
           
-          <div className={`ml-1 flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all ${
-            isMicEnabled 
-              ? (isSpeaking ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/40 border-white/5 text-zinc-500')
-              : 'bg-red-500/10 border-red-500/20 text-red-400'
-          }`}>
-            {isMicEnabled ? (
-              isSpeaking ? <Mic className={`${scale.icon} animate-pulse`} /> : <Mic className={scale.icon} />
-            ) : (
-              <MicOff className={scale.icon} />
-            )}
-            {!isMicEnabled && <span className="text-[7px] font-black uppercase tracking-tighter">Muted</span>}
-          </div>
-        </div>
-        
-        <button 
-          onClick={handlePin}
-          className={`p-1.5 rounded-full ${!reduceGpuUsage ? 'backdrop-blur-md' : 'bg-black/80'} transition ${
-            isPinned ? 'bg-fuchsia-500 text-white' : 'bg-black/50 text-white/50 hover:text-white'
-          }`}
-        >
-          <Pin className={scale.icon} />
-        </button>
-      </div>
-
-      <div className={`absolute ${scale.bottomGap} left-2 right-2`}>
-        <div className={`flex items-center ${scale.gap} rounded-lg bg-zinc-900/80 ${scale.ticker} ${!reduceGpuUsage ? 'backdrop-blur-md' : ''} border border-white/5 overflow-hidden`}>
-          <div className={`h-1 w-1 shrink-0 rounded-full bg-fuchsia-500 animate-pulse`} />
-          <div className="flex-1 overflow-hidden">
-            <p className={`whitespace-nowrap ${scale.text} font-medium text-zinc-300 animate-marquee`}>
-              {task} • {task} • {task}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {!participant.isLocal && (
-        <button 
-          onClick={triggerBroFist}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/40 text-white/60 hover:bg-fuchsia-500/80 hover:text-white transition group`}
-        >
-          <Flame className={`${scale.icon} group-hover:scale-110 transition`} />
-        </button>
-      )}
-
-      <AnimatePresence>
-        {showFistEffect && (
-          <motion.div 
-            initial={{ y: 20, opacity: 0, scale: 0.5 }} animate={{ y: -60, opacity: 1, scale: 1.5 }} exit={{ opacity: 0 }}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50 flex gap-2"
+          <button 
+            onClick={handlePin}
+            className={`p-1.5 rounded-full ${!reduceGpuUsage ? 'backdrop-blur-md' : 'bg-black/80'} transition ${
+              isPinned ? 'bg-fuchsia-500 text-white' : 'bg-black/50 text-white/50 hover:text-white'
+            }`}
           >
-            <Zap className="text-yellow-400 h-6 w-6" />
-            <Flame className="text-orange-500 h-6 w-6" />
-          </motion.div>
+            <Pin className={scale.icon} />
+          </button>
+        </div>
+
+        <div className={`absolute ${scale.bottomGap} left-2 right-2`}>
+          <div className={`flex items-center ${scale.gap} rounded-lg bg-zinc-900/80 ${scale.ticker} ${!reduceGpuUsage ? 'backdrop-blur-md' : ''} border border-white/5 overflow-hidden`}>
+            <div className={`h-1 w-1 shrink-0 rounded-full bg-fuchsia-500 animate-pulse`} />
+            <div className="flex-1 overflow-hidden">
+              <p className={`whitespace-nowrap ${scale.text} font-medium text-zinc-300 animate-marquee`}>
+                {task} • {task} • {task}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {!participant.isLocal && (
+          <button 
+            onClick={triggerBroFist}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/40 text-white/60 hover:bg-fuchsia-500/80 hover:text-white transition group`}
+          >
+            <Flame className={`${scale.icon} group-hover:scale-110 transition`} />
+          </button>
         )}
-      </AnimatePresence>
-    </motion.div>
+
+        <AnimatePresence>
+          {showFistEffect && (
+            <motion.div 
+              initial={{ y: 20, opacity: 0, scale: 0.5 }} animate={{ y: -60, opacity: 1, scale: 1.5 }} exit={{ opacity: 0 }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50 flex gap-2"
+            >
+              <Zap className="text-yellow-400 h-6 w-6" />
+              <Flame className="text-orange-500 h-6 w-6" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </AuraWrapper>
   );
 });

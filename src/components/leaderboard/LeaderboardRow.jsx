@@ -1,5 +1,6 @@
 import { Crown } from "lucide-react";
 import { FRAMES, DEFAULT_DECOR } from "../../data/profileDecor";
+import { AuraWrapper } from "../fx/AuraWrapper";
 
 export function LeaderboardRow({
   player,
@@ -48,12 +49,14 @@ export function LeaderboardRow({
       </td>
       <td className="px-3 py-3">
         <div className="flex items-center gap-3">
-          <span
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-lg ${frame.border} ${frame.glow}`}
-            style={{ borderColor: decor.accent ? `${decor.accent}88` : undefined }}
-          >
-            {decor.avatarEmoji || "📚"}
-          </span>
+          <AuraWrapper presetId={decor.auraId}>
+            <span
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-lg ${frame.border} ${frame.glow}`}
+              style={{ borderColor: decor.accent ? `${decor.accent}88` : undefined }}
+            >
+              {decor.avatarEmoji || "📚"}
+            </span>
+          </AuraWrapper>
           <div className="min-w-0">
             <p className="truncate font-semibold text-white">
               {player.displayName}
