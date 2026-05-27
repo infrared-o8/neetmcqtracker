@@ -73,8 +73,8 @@ export async function apiFetch(serverUrl, path, options = {}) {
   const url = apiUrl(serverUrl, path);
   const base = getApiBase(serverUrl);
 
-  if (path.startsWith("/api") && base && !base.startsWith("http")) {
-    throw new Error("Invalid server URL — use http://IP:3847");
+  if (path.startsWith("/api") && !base && !window.location.origin.includes("3847")) {
+    console.warn(`[API] Fetching ${path} from frontend origin. If this is a local bridge call, ensure you have set the server URL in settings or the bridge will fail.`);
   }
 
   try {

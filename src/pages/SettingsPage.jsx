@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { useProfileStore } from "../store/useProfileStore";
+import { useLogbookStore } from "../store/useLogbookStore";
 import { useLeaderboardSync } from "../hooks/useLeaderboardSync";
 import { apiFetch } from "../utils/api";
 import { parseYoutubeId } from "../utils/youtube";
@@ -32,6 +33,7 @@ export function SettingsPage() {
   const preferences = useTrackerStore((s) => s.preferences);
   const setPreferences = useTrackerStore((s) => s.setPreferences);
   const { testConnection, syncNow } = useLeaderboardSync({ enabled: false });
+  const logbookStore = useLogbookStore();
   
   const [status, setStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,7 +46,8 @@ export function SettingsPage() {
     audio: true,
     network: true,
     advanced: false,
-    aesthetic: true
+    aesthetic: true,
+    vault: false
   });
 
   const videoId = parseYoutubeId(videoUrlDraft);
@@ -201,7 +204,7 @@ export function SettingsPage() {
       desc: "Visual feedback of your focus AI",
       icon: Monitor,
       type: "toggle",
-      invert: false // Note: preferences.showAiSelfView is true/false normally
+      invert: false
     }
   ];
 
@@ -280,6 +283,7 @@ export function SettingsPage() {
               colorClass === 'fuchsia' ? 'bg-fuchsia-500/10 border-fuchsia-500/20' :
               colorClass === 'violet' ? 'bg-violet-500/10 border-violet-500/20' :
               colorClass === 'indigo' ? 'bg-indigo-500/10 border-indigo-500/20' :
+              colorClass === 'emerald' ? 'bg-emerald-500/10 border-emerald-500/20' :
               'bg-rose-500/10 border-rose-500/20'
             }`}>
               {icon}
@@ -435,6 +439,56 @@ export function SettingsPage() {
                 >
                   Apply Atmosphere
                 </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+      )}
+
+      {/* Obsidian Vault Section */}
+      {(!searchQuery || "obsidian vault headers bio chem physics".includes(searchQuery.toLowerCase())) && (
+        <section className={`genz-glass mt-6 rounded-[2rem] border-white/5 overflow-hidden transition-all ${(expandedSections.vault || searchQuery) ? 'bg-black/20' : 'bg-black/10'}`}>
+          <button 
+            onClick={() => toggleSection('vault')}
+            className="flex w-full items-center justify-between p-6 hover:bg-white/5 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <HardDrive className="h-4 w-4 text-emerald-400" />
+              </div>
+              <h2 className="text-xs uppercase tracking-[0.25em] text-white font-black">Obsidian Vault Headers</h2>
+            </div>
+            {(expandedSections.vault || searchQuery) ? <ChevronUp className="h-4 w-4 text-zinc-600" /> : <ChevronDown className="h-4 w-4 text-zinc-600" />}
+          </button>
+          
+          <AnimatePresence>
+            {(expandedSections.vault || searchQuery) && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-6 pb-6 space-y-4"
+              >
+                <p className="text-[10px] text-zinc-500 uppercase font-bold leading-relaxed mb-2 px-1">
+                  Customize target headers for the #tag system. QuestCap will append entries ABOVE these exact strings in your .md file.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { id: 'mainHeader', label: 'Main Header (#finalprep)', color: 'rose' },
+                    { id: 'bioHeader', label: 'Biology (#biopoint)', color: 'emerald' },
+                    { id: 'chemHeader', label: 'Chemistry (#chempoint)', color: 'cyan' },
+                    { id: 'phyHeader', label: 'Physics (#phypoint)', color: 'blue' },
+                  ].map((h) => (
+                    <div key={h.id} className="space-y-2">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-zinc-600 ml-1">{h.label}</label>
+                      <input 
+                        value={logbookStore[h.id]} 
+                        onChange={(e) => logbookStore.setHeaders({ [h.id]: e.target.value })}
+                        className={`w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none transition-all focus:ring-1 focus:ring-zinc-700`}
+                      />
+                    </div>
+                  ))}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

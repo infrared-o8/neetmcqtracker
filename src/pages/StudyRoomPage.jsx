@@ -89,17 +89,22 @@ export default function StudyRoomPage() {
       if (res.ok) {
         const data = await res.json();
         setRooms(data.rooms || []);
+        
+        // Update activeRoom data if we're in a room to keep creatorId current
+        if (activeRoomId) {
+          const current = data.rooms.find(r => r.roomId === activeRoomId);
+          if (current) setActiveRoom(current);
+        }
       }
     } catch (e) {
       console.error('Failed to fetch rooms:', e);
     } finally {
       if (!isSilent) setLoadingRooms(false);
     }
-  }, [serverUrl]);
+  }, [serverUrl, activeRoomId]);
 
   useEffect(() => {
     fetchRooms();
-    // Real-time update cycle for occupancy
     const interval = setInterval(() => fetchRooms(true), 10000);
     return () => clearInterval(interval);
   }, [fetchRooms]);
@@ -142,6 +147,7 @@ export default function StudyRoomPage() {
   }, [serverUrl, displayName]);
 
   const deleteRoom = useCallback(async (roomId) => {
+    if (!confirm("Are you sure you want to permanently delete this study hall?")) return;
     try {
       const token = clerkUserId ? await getToken() : null;
       const res = await apiFetch(serverUrl, `/api/rooms/${roomId}`, {
@@ -176,7 +182,6 @@ export default function StudyRoomPage() {
     const roomAllowsMic = !isGlobal && activeRoom?.isMicOpen;
     const micPreferences = useTrackerStore.getState().preferences;
     
-    // Initial audio state: false if user mutes on join, otherwise use filters
     const audioOptions = (roomAllowsMic && !muteOnJoin) ? {
       noiseSuppression: micPreferences.micNoiseSuppression,
       echoCancellation: micPreferences.micVoiceIsolation,
@@ -204,15 +209,13 @@ export default function StudyRoomPage() {
           isMicOpen={roomAllowsMic}
           isCreator={isCreator}
           onDelete={() => {
-            deleteRoom(activeRoomId);
-            leaveRoom();
+            deleteRoom(activeRoomId).then(() => leaveRoom());
           }}
         />
       </LiveKitRoom>
     );
   }
 
-  // Separate Global Hall from custom rooms for specific layout
   const globalHall = rooms.find(r => r.roomId === 'NEET-Study-Room') || {
     roomId: 'NEET-Study-Room',
     title: 'Global High-Yield Hall',
@@ -552,7 +555,7 @@ function PasswordModal({ room, onClose, onJoin }) {
     >
       <motion.div 
         initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
-        className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-zinc-900 p-8 text-center"
+        className="w-full max-sm rounded-[2rem] border border-white/10 bg-zinc-900 p-8 text-center"
       >
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20">
           <ShieldCheck className="h-8 w-8 text-fuchsia-400" />
@@ -576,6 +579,7 @@ function PasswordModal({ room, onClose, onJoin }) {
     </motion.div>
   );
 }
+
 function RoomView({ 
   roomId, 
   onLeave, 
@@ -590,9 +594,7 @@ function RoomView({
   const { onIncrement } = useMicroRewards();
   const { scheduleSync } = useLeaderboardSync();
   const [streamsLoaded, setStreamsLoaded] = useState(false);
-  const auraId = useProfileStore((s) => s.decor.auraId);
-
-  // ... (rest of implementation)
+  const auraId = useProfileStore((s) => s.decor.auraId || "NONE");
 
   const remoteCameraTracks = useTracks(
     [{ source: Track.Source.Camera, name: 'camera' }],
@@ -920,24 +922,28 @@ function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff, auraId }) {
   useEffect(() => {
     if (!localParticipant || isUpdatingRef.current) return;
 
-    const metadata = JSON.stringify({
+    const metadataObj = {
       task: task || 'Grinding Modules...',
       isBreak,
       rank,
       isMirrored,
       isCamOff,
-      auraId
-    });
+      auraId: auraId || "NONE"
+    };
+    
+    const metadataStr = JSON.stringify(metadataObj);
 
-    if (localParticipant.metadata !== metadata) {
+    if (localParticipant.metadata !== metadataStr) {
       isUpdatingRef.current = true;
-      localParticipant.setMetadata(metadata)
+      localParticipant.setMetadata(metadataStr)
         .catch(err => console.warn("Metadata sync timeout (retrying later):", err))
         .finally(() => {
-          isUpdatingRef.current = false;
+          setTimeout(() => {
+            isUpdatingRef.current = false;
+          }, 2000);
         });
     }
-  }, [localParticipant, task, isBreak, rank, isMirrored, isCamOff]);
+  }, [localParticipant, task, isBreak, rank, isMirrored, isCamOff, auraId]);
 
   return null;
 }

@@ -182,3 +182,4 @@
     border-right-color: var(--border);
   }
 }
+`n/* Monaco Editor Overrides */`n.monaco-editor, .monaco-editor .margin, .monaco-editor-background {`n  background-color: #1e1e1e !important;`n}`n`n.monaco-scrollable-element > .scrollbar > .slider {`n  background: rgba(255, 255, 255, 0.05) !important;`n  border-radius: 10px !important;`n}`n`n.monaco-scrollable-element > .scrollbar > .slider:hover {`n  background: rgba(255, 255, 255, 0.1) !important;`n}`n`n.monaco-scrollable-element > .scrollbar > .slider.active {`n  background: rgba(255, 255, 255, 0.2) !important;`n}

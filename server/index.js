@@ -3,6 +3,8 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import fs from "fs/promises";
+import { resolve, join, dirname, extname } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,7 +48,132 @@ app.use(cors({
   ]
 }));
 
+// Pre-flight fix for Private Network Access (PNA)
+app.use((req, res, next) => {
+  if (req.headers['access-control-request-private-network']) {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  }
+  next();
+});
+
 app.use(express.json({ limit: "64kb" }));
+
+// --- Part 4: Local File Bridge (Firefox & Non-Chromium Support) ---
+// This allows the web app to edit local Obsidian files via the local node server
+app.post("/api/local-vault/read", async (req, res) => {
+  let { path: filePath } = req.body;
+  if (!filePath) return res.status(400).json({ error: "Path is required. Did you paste it correctly?" });
+  
+  // Sanitize: Remove quotes and trim whitespace
+  filePath = filePath.replace(/^["']|["']$/g, '').trim();
+  
+  console.log(`[Bridge] Attempting to read: ${filePath}`);
+  
+  try {
+    const absolutePath = resolve(filePath);
+    
+    // Security: Only allow .md files
+    if (extname(absolutePath).toLowerCase() !== '.md') {
+      console.warn(`[Bridge] Access denied for non-md file: ${absolutePath}`);
+      return res.status(403).json({ error: `Access denied. The bridge only allows editing .md files. Your path ends in '${extname(absolutePath)}'.` });
+    }
+    
+    try {
+      await fs.access(absolutePath);
+    } catch (accessErr) {
+      console.error(`[Bridge] File not accessible: ${absolutePath}`);
+      return res.status(404).json({ error: `File not found or not accessible at: ${absolutePath}. Check if the path is exactly correct.` });
+    }
+
+    const content = await fs.readFile(absolutePath, "utf-8");
+    console.log(`[Bridge] Successfully read ${content.length} characters.`);
+    res.json({ content });
+  } catch (e) {
+    console.error(`[Bridge] Unexpected Read Error: ${e.message}`);
+    res.status(500).json({ error: `System Error: ${e.message}` });
+  }
+});
+
+app.post("/api/local-vault/write", async (req, res) => {
+  let { path: filePath, content } = req.body;
+  if (!filePath) return res.status(400).json({ error: "Path is required" });
+  
+  filePath = filePath.replace(/^["']|["']$/g, '');
+  console.log(`[Bridge] Writing: ${filePath}`);
+
+  try {
+    const absolutePath = resolve(filePath);
+    if (extname(absolutePath).toLowerCase() !== '.md') {
+      return res.status(403).json({ error: "Access denied. Only .md files allowed." });
+    }
+    
+    await fs.writeFile(absolutePath, content, "utf-8");
+    res.json({ success: true });
+  } catch (e) {
+    console.error(`[Bridge] Write Error: ${e.message}`);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/local-vault/upload", async (req, res) => {
+  const { vaultDir, filename, base64Data } = req.body;
+  if (!vaultDir || !filename || !base64Data) return res.status(400).json({ error: "Missing parameters" });
+
+  try {
+    const attachmentsDir = join(vaultDir, 'attachments');
+    // Ensure dir exists
+    await fs.mkdir(attachmentsDir, { recursive: true });
+    
+    const filePath = join(attachmentsDir, filename);
+    const buffer = Buffer.from(base64Data, 'base64');
+    await fs.writeFile(filePath, buffer);
+    
+    res.json({ success: true, path: `attachments/${filename}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+import { exec } from "child_process";
+
+// ... (other imports)
+
+// --- Part 4.1: Secure Python Bridge Execution Sync ---
+app.post("/api/local-vault/trigger-script", async (req, res) => {
+  const { mode, text, header } = req.body;
+  
+  // Cleanly isolate our target workspace string tracking
+  const cleanTargetHeader = header ? header.trim() : "# Final NEET Prep:";
+  
+  console.log(`[Bridge] Intercepted Execution Hook: mode=${mode}, header='${cleanTargetHeader}'`);
+  
+  // Ensure the dictionary key names align exactly with our Python script arguments
+  const payloadData = JSON.stringify({ 
+    mode: mode, 
+    text: text, 
+    header: cleanTargetHeader 
+  });
+  
+  const pythonPath = "python"; 
+  const scriptPath = join(__dirname, "quest_cap_bridge.py");
+  
+  // Safely translate the execution object via base64 encryption bounds
+  const encodedPayload = Buffer.from(payloadData).toString('base64');
+  const executionCommand = `${pythonPath} "${scriptPath}" --base64 "${encodedPayload}"`;
+  
+  console.log(`[Bridge] Spawning background worker execution thread safely.`);
+  
+  exec(executionCommand, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`[Bridge] Background script execution crash event: ${error.message}`);
+      return res.status(500).json({ error: error.message });
+    }
+    if (stdout) console.log(`[Bridge] Subprocess logging output: ${stdout.trim()}`);
+    if (stderr) console.warn(`[Bridge] Subprocess diagnostic warnings: ${stderr.trim()}`);
+    
+    res.json({ success: true });
+  });
+});
 
 // --- Part 1.3: Standard Request Throttling ---
 const apiLimiter = rateLimit({
@@ -84,8 +211,6 @@ function requirePlayer(req, res, next) {
 }
 
 // --- Auth Middleware Configuration ---
-// If CLERK_SECRET_KEY is provided, we strictly enforce OAuth token verification.
-// Otherwise, we allow bypass for local dev fallback.
 const authMiddleware = process.env.CLERK_SECRET_KEY 
   ? ClerkExpressRequireAuth() 
   : (req, res, next) => next();
@@ -102,19 +227,16 @@ app.post("/api/livekit/token", async (req, res) => {
 
   const room = roomName || "NEET-Study-Room";
   
-  // If it's a specific room (not the default), check password and capacity
   if (roomName && roomName !== "NEET-Study-Room") {
     const roomDoc = await Room.findOne({ roomId: roomName });
     if (!roomDoc) return res.status(404).json({ error: "Room not found" });
 
-    // Check Password
     if (roomDoc.isPasswordProtected) {
       if (roomDoc.password !== password) {
         return res.status(403).json({ error: "Incorrect room password" });
       }
     }
 
-    // Enforce Capacity via LiveKit check
     try {
       const participants = await svc.listParticipants(roomName);
       if (participants.length >= roomDoc.capacity) {
@@ -126,7 +248,13 @@ app.post("/api/livekit/token", async (req, res) => {
   }
 
   const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity: playerName });
-  at.addGrant({ roomJoin: true, room: room, canPublish: true, canSubscribe: true });
+  at.addGrant({ 
+    roomJoin: true, 
+    room: room, 
+    canPublish: true, 
+    canSubscribe: true,
+    canUpdateOwnMetadata: true 
+  });
 
   res.json({ token: await at.toJwt(), serverUrl: LIVEKIT_URL });
 });
@@ -134,8 +262,6 @@ app.post("/api/livekit/token", async (req, res) => {
 app.get("/api/rooms", async (req, res) => {
   try {
     const dbRooms = await Room.find({}).sort({ createdAt: -1 }).lean();
-    
-    // Add Global Hall to the list for enrichment if not already there
     const roomsToEnrich = [...dbRooms];
     if (!roomsToEnrich.find(r => r.roomId === "NEET-Study-Room")) {
       roomsToEnrich.push({
@@ -150,14 +276,12 @@ app.get("/api/rooms", async (req, res) => {
       });
     }
 
-    // Enrich with live participant counts from LiveKit
     const enrichedRooms = await Promise.all(roomsToEnrich.map(async (r) => {
       let activeCount = 0;
       try {
         const participants = await svc.listParticipants(r.roomId);
         activeCount = participants.length;
       } catch {
-        // Room might not exist in LiveKit yet (no one in it)
       }
 
       return {
@@ -187,13 +311,11 @@ app.post("/api/rooms", authMiddleware, async (req, res) => {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  // Identity check
   if (req.auth && req.auth.userId !== creatorId) {
     return res.status(403).json({ error: "Identity mismatch" });
   }
 
   try {
-    // Check if user already has a room
     const existing = await Room.findOne({ creatorId });
     if (existing) {
       return res.status(400).json({ error: "You can only create one room at a time." });
@@ -227,20 +349,15 @@ app.delete("/api/rooms/:roomId", authMiddleware, async (req, res) => {
     const room = await Room.findOne({ roomId });
     if (!room) return res.status(404).json({ error: "Room not found" });
 
-    // Only creator can delete
     if (room.creatorId !== playerId && (!req.auth || req.auth.userId !== room.creatorId)) {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    // 1. Delete from MongoDB
     await Room.deleteOne({ roomId });
 
-    // 2. Forcibly close in LiveKit (disconnects everyone)
     try {
       await svc.deleteRoom(roomId);
     } catch (lkErr) {
-      // Might already be empty/deleted in LK
-      console.warn(`LiveKit room deletion skipped: ${lkErr.message}`);
     }
 
     res.json({ ok: true });
@@ -253,7 +370,6 @@ app.post("/api/players/register", authMiddleware, async (req, res) => {
   const { playerId, displayName, decor } = req.body;
   if (!playerId || !displayName) return res.status(400).json({ error: "playerId and displayName required" });
   
-  // Guard against identity spoofing if using Clerk
   if (req.auth && req.auth.userId !== playerId) {
     return res.status(403).json({ error: "Identity mismatch. Token does not match requested player ID." });
   }
@@ -292,7 +408,6 @@ app.put("/api/players/:playerId/stats", authMiddleware, requirePlayer, antiCheat
   try {
     const ok = await updateStats(req.playerId, req.body);
     if (!ok) {
-      // If update failed (likely user doesn't exist yet), ensure they are registered
       await upsertPlayer({
         playerId: req.playerId,
         displayName: req.body.displayName || "Aspirant",
@@ -320,7 +435,6 @@ app.get("/api/players/:playerId", async (req, res) => {
   res.json(player);
 });
 
-// Error handling middleware for Clerk Auth
 app.use((err, req, res, next) => {
   if (err.name === 'UnauthorizedError') {
     return res.status(401).json({ error: "Unauthenticated request. Valid Clerk JWT required." });

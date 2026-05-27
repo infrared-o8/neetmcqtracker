@@ -12,8 +12,12 @@ import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import StudyRoomPage from "./pages/StudyRoomPage";
+import NeetDatabase from "./pages/NeetDatabase";
+import LogbookPage from "./pages/LogbookPage";
+import { QuickInsertPalette } from "./components/QuickInsertPalette";
 import { useProfileStore } from "./store/useProfileStore";
 import { useTrackerStore } from "./store/useTrackerStore";
+import { useLogbookStore } from "./store/useLogbookStore";
 import { FaceStudyProvider } from "./context/FaceStudyProvider";
 import { useFaceStudyContext } from "./hooks/useFaceStudyContext";
 import { useThock } from "./hooks/useThock";
@@ -42,7 +46,7 @@ function NewUserOnboarding() {
   const studyMinutes = useTrackerStore(s => s.studyMinutes);
   const displayName = useProfileStore(s => s.displayName);
   const setDisplayName = useProfileStore(s => s.setDisplayName);
-  
+
   const [show, setShow] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,11 +54,14 @@ function NewUserOnboarding() {
   useEffect(() => {
     // Show if 0 stats and name is default/empty
     const isNew = totalSolved === 0 && totalPagesRead === 0 && studyMinutes === 0;
-    if (isNew && (!displayName || displayName === "Aspirant")) {
-      setShow(true);
-    }
+    // Use a small timeout to avoid the 'Cannot update while rendering' error
+    const timer = setTimeout(() => {
+      if (isNew && (!displayName || displayName === "Aspirant")) {
+        setShow(true);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
   }, [totalSolved, totalPagesRead, studyMinutes, displayName]);
-
   const handleSave = async (e) => {
     e.preventDefault();
     if (!nameInput.trim()) return;
@@ -260,6 +267,7 @@ function ClerkSync() {
 
 function App() {
   const ensurePlayerId = useProfileStore((s) => s.ensurePlayerId);
+  const syncTags = useLogbookStore((s) => s.syncTags);
   const preferences = useTrackerStore((s) => s.preferences);
   const decor = useProfileStore((s) => s.decor);
   const playClick = useThock();
@@ -267,7 +275,8 @@ function App() {
 
   useEffect(() => {
     ensurePlayerId();
-  }, [ensurePlayerId]);
+    syncTags(); // Fix old local storage tags
+  }, [ensurePlayerId, syncTags]);
 
   // Global click listener for snappy audio feedback and AudioContext activation
   useEffect(() => {
@@ -298,6 +307,7 @@ function App() {
           <ThemeBackground cozyPreset={preferences.cozyPreset} />
           <CameraPersistenceLayer />
           <NewUserOnboarding />
+          <QuickInsertPalette />
           <MotionDiv
             className="relative z-10 flex min-h-0 flex-1 flex-col"
             initial={{ opacity: 0 }}
@@ -314,6 +324,8 @@ function App() {
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/study-room" element={<StudyRoomPage />} />
+                  <Route path="/database" element={<NeetDatabase />} />
+                  <Route path="/logbook" element={<LogbookPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </div>

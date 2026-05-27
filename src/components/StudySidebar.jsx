@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate, Cloud, BookOpen, Video, User } from "lucide-react";
+import { LayoutDashboard, Trophy, Settings, Volume2, Vibrate, Cloud, BookOpen, Video, User, FileText } from "lucide-react";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "../hooks/useAuthShim";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { PixelCompanion } from "./PixelCompanion";
@@ -98,6 +98,14 @@ export function StudySidebar() {
           <Video className="h-4 w-4" />
           Study Room
         </NavLink>
+        <NavLink to="/database" className={navClass}>
+          <BookOpen className="h-4 w-4" />
+          NEET Database
+        </NavLink>
+        {/* <NavLink to="/logbook" className={navClass}>
+          <FileText className="h-4 w-4" />
+          Student Logbook
+        </NavLink> */}
         <NavLink to="/settings" className={navClass}>
           <Settings className="h-4 w-4" />
           Settings

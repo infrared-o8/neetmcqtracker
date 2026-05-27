@@ -247,7 +247,7 @@ export function AuraWrapper({
           }}
         />
       )}
-      <div className="relative z-10 w-full h-full">
+      <div className="relative z-10 w-full h-full flex flex-col">
         {children}
       </div>
     </div>
