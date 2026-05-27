@@ -86,6 +86,11 @@ export async function apiFetch(serverUrl, path, options = {}) {
         ...options.headers,
       },
     });
+
+    if (res.status === 401 || res.status === 403) {
+      window.dispatchEvent(new CustomEvent("neet:unauthenticated", { detail: { url, status: res.status } }));
+    }
+
     return res;
   } catch (err) {
     const enriched = new Error(describeFetchError(err, url));

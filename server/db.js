@@ -24,14 +24,13 @@ const userSchema = new mongoose.Schema({
 });
 
 // Calculate activityTotal before saving to allow easy sorting
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function() {
   const solved = Number(this.totalSolved) || 0;
   const pages = Number(this.totalPagesRead) || 0;
   const minutes = Number(this.studyMinutes) || 0;
   
   this.activityTotal = solved + pages + (minutes * 0.5);
   this.updatedAt = new Date();
-  next();
 });
 
 // Indexes for fast leaderboard queries
@@ -100,7 +99,7 @@ export async function upsertPlayer({ playerId, displayName, decor }) {
     await User.findOneAndUpdate(
       { playerId },
       { $set: updatePayload },
-      { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true, runValidators: true }
     );
   } catch (e) {
     console.error("Upsert Player Error:", e);

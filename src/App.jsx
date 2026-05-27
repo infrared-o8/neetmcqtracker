@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ClerkProvider } from "@clerk/clerk-react";
+import { ClerkProvider, useClerk } from "@clerk/clerk-react";
 import { useAuth } from "./hooks/useAuthShim";
 import { StudySidebar } from "./components/StudySidebar";
 import { YoutubeMedia } from "./components/YoutubeMedia";
@@ -28,6 +28,31 @@ const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!CLERK_PUBLISHABLE_KEY) {
   console.warn("Missing VITE_CLERK_PUBLISHABLE_KEY. Auth features will be limited.");
+}
+
+/** 
+ * Listens for global unauthenticated events and prompts for login
+ */
+function AuthListener() {
+  const { openSignIn } = useClerk();
+
+  useEffect(() => {
+    const handleUnauth = () => {
+      console.warn("[Auth] Unauthenticated API call detected. Prompting for sign-in.");
+      if (openSignIn) {
+        openSignIn({
+          appearance: {
+            variables: { colorPrimary: "#ec4899" } // Pink-500
+          }
+        });
+      }
+    };
+
+    window.addEventListener("neet:unauthenticated", handleUnauth);
+    return () => window.removeEventListener("neet:unauthenticated", handleUnauth);
+  }, [openSignIn]);
+
+  return null;
 }
 
 /** 
@@ -118,6 +143,7 @@ function App() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
       <ClerkSync />
+      <AuthListener />
       {AppContent}
     </ClerkProvider>
   );
