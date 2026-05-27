@@ -28,6 +28,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
 
   const apiBase = getApiBase(serverUrl);
   const usingProxy = !apiBase;
+  const isLegacyServer = serverUrl.includes("ngrok") || serverUrl.includes("localhost") || serverUrl.includes("127.0.0.1");
 
   const activePlayerId = clerkUserId || useProfileStore.getState().playerId;
 
@@ -59,7 +60,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     if (!activePlayerId || Date.now() < cooldownRef.current) return false;
     try {
       const { displayName, decor } = useProfileStore.getState();
-      const token = clerkUserId ? await getToken() : null;
+      const token = (clerkUserId && !isLegacyServer) ? await getToken() : null;
       
       const res = await apiFetch(serverUrl, "/api/players/register", {
         method: "POST",
@@ -81,7 +82,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       setLastError(e.message);
       return false;
     }
-  }, [serverUrl, getToken, activePlayerId, clerkUserId]);
+  }, [serverUrl, getToken, activePlayerId, clerkUserId, isLegacyServer]);
 
   const pushStats = useCallback(async () => {
     if (!activePlayerId || Date.now() < cooldownRef.current) return false;
@@ -95,7 +96,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         totalCratesOpened
       } = useProfileStore.getState();
       const stats = getSnapshot(); 
-      const token = clerkUserId ? await getToken() : null;
+      const token = (clerkUserId && !isLegacyServer) ? await getToken() : null;
 
       const res = await apiFetch(serverUrl, `/api/players/${activePlayerId}/stats`, {
         method: "PUT",
@@ -145,7 +146,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       setLastError(e.message);
       return false;
     }
-  }, [serverUrl, getSnapshot, setLastSyncedAt, getToken, activePlayerId, clerkUserId]);
+  }, [serverUrl, getSnapshot, setLastSyncedAt, getToken, activePlayerId, clerkUserId, isLegacyServer]);
 
   const syncNow = useCallback(async () => {
     if (!authLoaded) return { ok: false, reason: "auth-loading" };
@@ -166,6 +167,12 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       // 1. Initial Handshake: Register and check existing cloud state
       await register();
       
+      // In Legacy Mode, we skip the aggressive "Restore" pull and just push
+      if (isLegacyServer) {
+        const pushed = await pushStats();
+        return { ok: pushed, reason: pushed ? null : "sync-failed" };
+      }
+
       const res = await apiFetch(serverUrl, `/api/players/${activePlayerId}`);
       if (res.ok) {
         const cloudData = await res.json();
@@ -173,12 +180,9 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
         const localProfile = useProfileStore.getState();
 
         // 2. Authoritative Sync: Align local state with MongoDB Cloud
-        // We use Cloud values if they represent more total effort OR if local is effectively "fresh"
         const cloudActivity = cloudData.activityTotal || 0;
         const localActivity = localStats.activityTotal || 0;
         
-        // If user is on a new device/browser (localActivity is 0 or very low) 
-        // OR if cloud has more progress, we pull down.
         const shouldRestore = cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0);
 
         if (shouldRestore) {
@@ -234,7 +238,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
       setLastError(e.message);
       return { ok: false, reason: "error", error: e.message };
     }
-  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats, getSnapshot, serverUrl]);
+  }, [authLoaded, clerkUserId, ensurePlayerId, activePlayerId, checkHealth, register, pushStats, getSnapshot, serverUrl, isLegacyServer]);
 
   const scheduleSync = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

@@ -54,43 +54,51 @@ const roomSchema = new mongoose.Schema({
 
 export const Room = mongoose.model("Room", roomSchema);
 
+// --- Part 4: In-Memory Fallback for Legacy/Local Mode ---
+const memoryStore = {
+  users: new Map(), // playerId -> user object
+  rooms: new Map(), // roomId -> room object
+};
+
 export const connectDB = async () => {
   if (!process.env.MONGO_URI) {
-    console.error("❌ ERROR: Missing MONGO_URI environment variable.");
-    console.log("👉 Action: Add MONGO_URI to your Render Environment Variables.");
+    console.warn("⚠️ WARNING: Missing MONGO_URI. Falling back to In-Memory Legacy Mode.");
     return;
   }
   try {
     mongoose.set('strictQuery', false);
     await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000 // Timeout after 5s instead of hanging
+      serverSelectionTimeoutMS: 5000
     });
     console.log("✅ MongoDB Connected Successfully to Cloud Atlas");
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err.message);
-    if (err.message.includes("IP not whitelisted")) {
-      console.log("👉 Action: Add 0.0.0.0/0 to Network Access in MongoDB Atlas.");
-    }
+    console.warn("⚠️ Falling back to In-Memory Legacy Mode.");
   }
 };
 
-export async function upsertPlayer({ playerId, displayName, decor }) {
-  try {
-    const updatePayload = { 
-      displayName, 
-      updatedAt: new Date() 
-    };
-    if (decor) updatePayload.decor = decor;
+const isMongoConnected = () => mongoose.connection.readyState === 1;
 
+export async function upsertPlayer({ playerId, displayName, decor }) {
+  if (!isMongoConnected()) {
+    const existing = memoryStore.users.get(playerId) || {};
+    memoryStore.users.set(playerId, {
+      ...existing,
+      playerId,
+      displayName: displayName || existing.displayName || "Aspirant",
+      decor: decor || existing.decor || {},
+      updatedAt: new Date()
+    });
+    return;
+  }
+
+  try {
+    const updatePayload = { displayName, updatedAt: new Date() };
+    if (decor) updatePayload.decor = decor;
     await User.findOneAndUpdate(
       { playerId },
       { $set: updatePayload },
-      { 
-        upsert: true, 
-        new: true,
-        setDefaultsOnInsert: true,
-        runValidators: true
-      }
+      { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true }
     );
   } catch (e) {
     console.error("Upsert Player Error:", e);
@@ -98,11 +106,33 @@ export async function upsertPlayer({ playerId, displayName, decor }) {
 }
 
 export async function updateStats(playerId, stats) {
+  if (!isMongoConnected()) {
+    const user = memoryStore.users.get(playerId);
+    if (!user) return false;
+
+    const safeNum = (val, fallback = 0) => {
+      const n = Number(val);
+      return isNaN(n) ? fallback : n;
+    };
+
+    user.xp = Math.max(safeNum(user.xp), safeNum(stats.xp));
+    user.totalSolved = Math.max(safeNum(user.totalSolved), safeNum(stats.totalSolved));
+    user.totalPagesRead = Math.max(safeNum(user.totalPagesRead), safeNum(stats.totalPagesRead));
+    user.studyMinutes = Math.max(safeNum(user.studyMinutes), safeNum(stats.studyMinutes));
+    
+    if (stats.level !== undefined) user.level = safeNum(stats.level, 1);
+    if (stats.streak !== undefined) user.streak = safeNum(stats.streak);
+    if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel || "Aspirant";
+    
+    user.activityTotal = user.totalSolved + user.totalPagesRead + (user.studyMinutes * 0.5);
+    user.updatedAt = new Date();
+    return true;
+  }
+
   try {
     const user = await User.findOne({ playerId });
     if (!user) return false;
     
-    // Auth-Protection: Never allow cumulative totals to decrease
     const safeNum = (val, fallback = 0) => {
       const n = Number(val);
       return isNaN(n) ? fallback : n;
@@ -120,13 +150,11 @@ export async function updateStats(playerId, stats) {
       console.log(`[Stats] Player ${playerId} progressed: ${oldSolved} -> ${newSolved} MCQs`);
     }
 
-    // Status/Label updates: Take latest
     if (stats.level !== undefined) user.level = safeNum(stats.level, 1);
     if (stats.streak !== undefined) user.streak = safeNum(stats.streak);
     if (stats.bestStreak !== undefined) user.bestStreak = safeNum(stats.bestStreak);
     if (stats.rankLabel !== undefined) user.rankLabel = stats.rankLabel || "Aspirant";
 
-    // Reward/Profile fields: Take latest or more advanced
     if (stats.unlockedItems && Array.isArray(stats.unlockedItems)) {
       if (stats.unlockedItems.length > (user.unlockedItems || []).length) {
         user.unlockedItems = stats.unlockedItems;
@@ -138,10 +166,8 @@ export async function updateStats(playerId, stats) {
       user.totalCratesOpened = Math.max(safeNum(user.totalCratesOpened), safeNum(stats.totalCratesOpened));
     }
 
-    // Recalculate activityTotal
     user.activityTotal = user.totalSolved + user.totalPagesRead + (user.studyMinutes * 0.5);
 
-    // Persist Granular Logs
     if (stats.dailyLogs && typeof stats.dailyLogs === "object") {
       const merged = { ...(user.dailyLogs || {}) };
       Object.entries(stats.dailyLogs).forEach(([date, count]) => {
@@ -169,6 +195,11 @@ export async function updateStats(playerId, stats) {
 }
 
 export async function getPlayer(playerId) {
+  if (!isMongoConnected()) {
+    const user = memoryStore.users.get(playerId);
+    return user || null;
+  }
+
   try {
     const user = await User.findOne({ playerId }).lean();
     if (!user) return null;
@@ -200,6 +231,12 @@ export async function getPlayer(playerId) {
 }
 
 export async function getLeaderboard(sort = "activity") {
+  if (!isMongoConnected()) {
+    const users = Array.from(memoryStore.users.values());
+    users.sort((a, b) => (b.activityTotal || 0) - (a.activityTotal || 0));
+    return users.slice(0, 100).map((u, i) => ({ ...u, rank: i + 1 }));
+  }
+
   try {
     let sortQuery = { activityTotal: -1, studyMinutes: -1 };
     if (sort === "xp") sortQuery = { xp: -1, activityTotal: -1 };
