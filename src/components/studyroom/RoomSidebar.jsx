@@ -19,7 +19,7 @@ import { useLocalParticipant, useRoomContext } from '@livekit/components-react';
 import { ConnectionState } from 'livekit-client';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function RoomSidebar({ participantCount = 0 }) {
+export function RoomSidebar({ participantCount = 0, isMicOpen = false }) {
   const { 
     currentTask, 
     setCurrentTask, 
@@ -47,7 +47,7 @@ export function RoomSidebar({ participantCount = 0 }) {
   }, [localParticipant?.isMicrophoneEnabled]);
 
   const toggleMic = async () => {
-    if (!localParticipant) return;
+    if (!localParticipant || !isMicOpen) return;
     const nextState = isMuted; // If currently muted, we want to enable (nextState = true)
     await localParticipant.setMicrophoneEnabled(nextState);
     setIsMuted(!nextState);
@@ -64,7 +64,7 @@ export function RoomSidebar({ participantCount = 0 }) {
 
   return (
     <div className="flex w-full flex-col gap-6 p-4 pb-20">
-      {/* Live Occupancy Meter */}
+      {/* Live Occupancy Meter ... */}
       <div className="flex items-center gap-3 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20 p-4">
         <div className="relative">
           <div className="absolute inset-0 animate-ping rounded-full bg-fuchsia-400 opacity-20" />
@@ -121,9 +121,10 @@ export function RoomSidebar({ participantCount = 0 }) {
             <ToggleButton 
               active={!isMuted} 
               onClick={toggleMic}
+              disabled={!isMicOpen}
               icon={isMuted ? MicOff : Mic}
-              label={isMuted ? "Mic Muted" : "Mic Live"}
-              className="w-full flex-row gap-4 py-3"
+              label={!isMicOpen ? "Mic Locked" : isMuted ? "Mic Muted" : "Mic Live"}
+              className={`w-full flex-row gap-4 py-3 ${!isMicOpen ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
             />
           </div>
         )}
@@ -193,15 +194,16 @@ export function RoomSidebar({ participantCount = 0 }) {
   );
 }
 
-function ToggleButton({ active, onClick, icon: Icon, label, className = "" }) {
+function ToggleButton({ active, onClick, icon: Icon, label, className = "", disabled = false }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={`flex flex-col items-center justify-center gap-2 rounded-xl border py-4 transition ${
         active 
           ? 'bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-100' 
           : 'bg-zinc-900/40 border-white/5 text-zinc-500 hover:text-zinc-300'
-      } ${className}`}
+      } ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <Icon className="h-5 w-5" />
       <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>

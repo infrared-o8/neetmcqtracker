@@ -1,6 +1,7 @@
+import React from 'react';
 import { buildContributionDays, getHeatmapColorClass } from "../utils/gamification";
 
-export function ContributionGrid({ dailyLogs, dailyPageLogs, weeks = 26 }) {
+export const ContributionGrid = React.memo(function ContributionGrid({ dailyLogs, dailyPageLogs, weeks = 26 }) {
   const days = buildContributionDays(dailyLogs, dailyPageLogs, weeks);
 
   return (
@@ -30,4 +31,4 @@ export function ContributionGrid({ dailyLogs, dailyPageLogs, weeks = 26 }) {
       </div>
     </div>
   );
-}
+});

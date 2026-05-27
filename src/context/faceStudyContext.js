@@ -6,7 +6,6 @@ export const FaceStudyContext = createContext({
   loading: false,
   error: "",
   faceDetected: false,
-  phoneDetected: false,
   confidence: 0,
   secondsTowardMinute: 0,
   minuteBurst: null,

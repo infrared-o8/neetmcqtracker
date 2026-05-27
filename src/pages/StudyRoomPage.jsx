@@ -129,11 +129,10 @@ export default function StudyRoomPage() {
       setActiveRoom(roomData);
       setShowPasswordModal(null);
       setRoomPassword('');
-      startCamera();
     } catch (e) {
       setError(e.message);
     }
-  }, [serverUrl, displayName, startCamera]);
+  }, [serverUrl, displayName]);
 
   const deleteRoom = useCallback(async (roomId) => {
     try {
@@ -626,7 +625,7 @@ function RoomView({
           className="hidden shrink-0 flex-col border-r border-white/5 bg-zinc-900/20 backdrop-blur-md lg:flex overflow-hidden"
         >
           <div className="flex-1 overflow-y-auto">
-            <RoomSidebarContent />
+            <RoomSidebarContent isMicOpen={isMicOpen} />
           </div>
           <div className="p-4 border-t border-white/5">
             <button onClick={onLeave} className="w-full rounded-xl bg-red-500/10 py-3 text-[10px] font-black uppercase tracking-widest text-red-500 transition-colors hover:bg-red-500 hover:text-white">
@@ -764,11 +763,11 @@ function StatBox({ label, value, color, icon, suffix = "", isText = false }) {
   );
 }
 
-function RoomSidebarContent() {
+function RoomSidebarContent({ isMicOpen }) {
   const { localParticipant } = useLocalParticipant();
   const remoteParticipants = useParticipants();
   const count = (localParticipant ? 1 : 0) + remoteParticipants.length;
-  return <RoomSidebar participantCount={count} />;
+  return <RoomSidebar participantCount={count} isMicOpen={isMicOpen} />;
 }
 
 function StudyGrid({ isMicOpen }) {

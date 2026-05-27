@@ -67,24 +67,25 @@ app.use("/api/leaderboard", apiLimiter);
 app.use("/api/players", apiLimiter);
 app.use("/api/rooms", roomLimiter);
 
-// --- Part 1.1 & 1.2: Anti-Cheat & Velocity Logic ---
+// --- Part 1.1 & 1.2: Anti-Cheat & Velocity Logic (Token Bucket) ---
 const userTracking = new Map();
-const MAX_MCQ_PER_MIN = 100; // Increased significantly for sync flexibility
-const MAX_PAGES_PER_MIN = 50;
-const MAX_DAILY_AP = 5000; // Increased daily cap
+const MAX_MCQ_PER_MIN = 120; // 2 per second
+const MAX_PAGES_PER_MIN = 60; // 1 per second
+const MAX_DAILY_AP = 15000;
+const BURST_ALLOWANCE = 1000; // Allow a burst of 1000 units for catch-up (e.g. offline study)
 
 function antiCheatMiddleware(req, res, next) {
   const playerId = req.headers["x-player-id"] || req.params.playerId;
   if (!playerId) return next();
 
   const now = Date.now();
-  const ONE_MINUTE = 60 * 1000;
   const ONE_DAY = 24 * 60 * 60 * 1000;
 
   if (!userTracking.has(playerId)) {
     userTracking.set(playerId, {
-      mcqLogs: [],
-      pageLogs: [],
+      mcqBudget: BURST_ALLOWANCE,
+      pageBudget: BURST_ALLOWANCE / 2,
+      lastUpdate: now,
       dailyAp: 0,
       dayStart: now,
       lastSolved: null,
@@ -94,19 +95,22 @@ function antiCheatMiddleware(req, res, next) {
 
   const tracker = userTracking.get(playerId);
 
+  // Reset daily
   if (now - tracker.dayStart > ONE_DAY) {
     tracker.dailyAp = 0;
     tracker.dayStart = now;
   }
 
+  // Refill budget based on time passed
+  const elapsedMins = (now - tracker.lastUpdate) / 60000;
+  if (elapsedMins > 0) {
+    tracker.mcqBudget = Math.min(3000, tracker.mcqBudget + elapsedMins * MAX_MCQ_PER_MIN);
+    tracker.pageBudget = Math.min(1500, tracker.pageBudget + elapsedMins * MAX_PAGES_PER_MIN);
+    tracker.lastUpdate = now;
+  }
+
   const incomingStats = req.body;
   if (incomingStats && (incomingStats.totalSolved !== undefined || incomingStats.totalPagesRead !== undefined)) {
-    console.log(`[Sync] Incoming stats for ${playerId}:`, {
-      solved: incomingStats.totalSolved,
-      pages: incomingStats.totalPagesRead,
-      minutes: incomingStats.studyMinutes
-    });
-
     const isInitialSync = tracker.lastSolved === null;
     const prevSolved = tracker.lastSolved ?? incomingStats.totalSolved;
     const prevPages = tracker.lastPages ?? incomingStats.totalPagesRead;
@@ -115,35 +119,32 @@ function antiCheatMiddleware(req, res, next) {
 
     const mcqDelta = Math.max(0, incomingSolved - prevSolved);
     const pagesDelta = Math.max(0, incomingPages - prevPages);
-    
+
     if (mcqDelta > 0 || pagesDelta > 0) {
-      console.log(`[Anti-Cheat] Progress detected for ${playerId}: +${mcqDelta} MCQs, +${pagesDelta} Pages`);
+      console.log(`[Sync] Incoming stats for ${playerId}: { solved: ${incomingSolved}, pages: ${incomingPages} } (Delta: +${mcqDelta}/+${pagesDelta})`);
     }
 
     if (!isInitialSync && (mcqDelta > 0 || pagesDelta > 0)) {
-      tracker.mcqLogs = tracker.mcqLogs.filter(log => now - log.time <= ONE_MINUTE);
-      tracker.pageLogs = tracker.pageLogs.filter(log => now - log.time <= ONE_MINUTE);
-      
-      const recentMcqs = tracker.mcqLogs.reduce((acc, log) => acc + log.count, 0) + mcqDelta;
-      const recentPages = tracker.pageLogs.reduce((acc, log) => acc + log.count, 0) + pagesDelta;
-      
-      if (recentMcqs > MAX_MCQ_PER_MIN || recentPages > MAX_PAGES_PER_MIN) {
-        console.warn(`[Anti-Cheat] Velocity threshold exceeded for ${playerId} (Recent MCQ: ${recentMcqs})`);
-        return res.status(429).json({ error: "Velocity threshold exceeded. Please slow down your logging." });
+      if (mcqDelta > tracker.mcqBudget || pagesDelta > tracker.pageBudget) {
+        console.warn(`[Anti-Cheat] Velocity threshold exceeded for ${playerId}: MCQ Delta ${mcqDelta} (Budget: ${Math.floor(tracker.mcqBudget)})`);
+        return res.status(429).json({ 
+          error: "Velocity threshold exceeded.", 
+          message: `Your sync was blocked because the progress was too fast. Please wait a few minutes. (Budget: ${Math.floor(tracker.mcqBudget)})` 
+        });
       }
 
-      if (mcqDelta > 0) tracker.mcqLogs.push({ time: now, count: mcqDelta });
-      if (pagesDelta > 0) tracker.pageLogs.push({ time: now, count: pagesDelta });
-      console.log(`[Anti-Cheat] Accepted deltas for ${playerId}: +${mcqDelta} MCQ, +${pagesDelta} Pages`);
-    }
-    
-    const apDelta = mcqDelta + pagesDelta; 
-    if (tracker.dailyAp + apDelta > MAX_DAILY_AP) {
-      console.warn(`[Anti-Cheat] Daily AP cap exceeded for ${playerId}`);
-      return res.status(429).json({ error: "Daily AP cap exceeded." });
+      tracker.mcqBudget -= mcqDelta;
+      tracker.pageBudget -= pagesDelta;
+      tracker.dailyAp += (mcqDelta + pagesDelta);
+      
+      if (tracker.dailyAp > MAX_DAILY_AP) {
+        console.warn(`[Anti-Cheat] Daily AP cap exceeded for ${playerId}`);
+        return res.status(429).json({ error: "Daily AP cap exceeded." });
+      }
+
+      console.log(`[Anti-Cheat] Accepted deltas for ${playerId}: budget remaining MCQ=${Math.floor(tracker.mcqBudget)}`);
     }
 
-    tracker.dailyAp += apDelta;
     tracker.lastSolved = incomingSolved;
     tracker.lastPages = incomingPages;
   }

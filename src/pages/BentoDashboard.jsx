@@ -144,7 +144,6 @@ export function BentoDashboard() {
 
   const [burst, setBurst] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 1200, height: 760 });
-  const [clockTick, setClockTick] = useState(() => Date.now());
   const [prevLevel, setPrevLevel] = useState(1);
   const pendingCrates = useProfileStore((s) => s.pendingCrates);
   const removeFirstPendingCrate = useProfileStore((s) => s.removeFirstPendingCrate);
@@ -191,13 +190,6 @@ export function BentoDashboard() {
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setClockTick(Date.now());
-    }, 1000);
-    return () => window.clearInterval(id);
   }, []);
 
   const handleAdd = useCallback(

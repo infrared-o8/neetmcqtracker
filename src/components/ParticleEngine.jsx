@@ -7,7 +7,7 @@ import { useTrackerStore } from '../store/useTrackerStore';
  * and Additive Luminance Rendering.
  */
 
-const MAX_PARTICLES = 250;
+const MAX_PARTICLES = 100;
 const FOCAL_LENGTH = 300;
 
 export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
@@ -48,14 +48,14 @@ export function ParticleEngine({ effect = 'NONE', highIntensity = false }) {
     const GLOBAL_SCALE = 1.75;
 
     const drawGlowPoint = (ctx, x, y, size, color, alpha) => {
-      if (reduceGpuUsage) {
+      if (reduceGpuUsage || !highIntensity) {
         ctx.fillStyle = color;
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.beginPath(); ctx.arc(x, y, size * 0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = alpha * 0.4;
+        ctx.beginPath(); ctx.arc(x, y, size * 0.4, 0, Math.PI * 2); ctx.fill();
         return;
       }
       const g = ctx.createRadialGradient(x, y, 0, x, y, size);
-      const intensity = highIntensity ? 1.0 : 0.6;
+      const intensity = 0.6;
       g.addColorStop(0, `rgba(255, 255, 255, ${alpha * intensity})`);
       g.addColorStop(0.2, `${color}${Math.floor(alpha * 255 * 0.8).toString(16).padStart(2, '0')}`);
       g.addColorStop(1, 'rgba(0, 0, 0, 0)');

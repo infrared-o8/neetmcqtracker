@@ -14,21 +14,17 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize, className = "
     loading,
     error,
     faceDetected,
-    phoneDetected,
     confidence,
     secondsTowardMinute,
     startCamera,
     stopCamera,
   } = useFaceStudyContext();
 
-  // Auto-restart on mount
-  useEffect(() => {
-    startCamera();
-  }, []);
+  // Removed auto-restart on mount
 
   return (
     <GlowCard 
-      glow={active && faceDetected && !phoneDetected} 
+      glow={active && faceDetected} 
       className={`bento-camera h-full ${className}`}
       id={id}
       minimized={minimized}
@@ -38,7 +34,7 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize, className = "
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-            AI · Face & Phone check active
+            AI · Focus monitoring active
           </p>
         </div>
         <div className="text-right text-[10px] text-zinc-500">
@@ -81,25 +77,18 @@ export function StudyCameraCard({ id, minimized, onToggleMinimize, className = "
             >
               {faceDetected ? `Face ${Math.round(confidence * 100)}%` : "No face"}
             </div>
-            {phoneDetected && (
-              <div className="absolute right-3 top-3 animate-pulse rounded-lg bg-rose-500/80 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg shadow-rose-500/20 backdrop-blur-sm">
-                📵 PHONE
-              </div>
-            )}
           </>
         )}
         {active && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-6">
             <div className="h-1 overflow-hidden rounded-full bg-zinc-700/80">
               <div
-                className={`h-full transition-all duration-300 ${
-                  phoneDetected ? "bg-rose-500" : "bg-gradient-to-r from-cyan-500 to-emerald-400"
-                }`}
+                className="h-full transition-all duration-300 bg-gradient-to-r from-cyan-500 to-emerald-400"
                 style={{ width: `${(secondsTowardMinute / 60) * 100}%` }}
               />
             </div>
             <p className="mt-1 text-center text-[10px] text-zinc-400">
-              {phoneDetected ? "Paused" : `${secondsTowardMinute}s / 60s`}
+              {secondsTowardMinute}s / 60s
             </p>
           </div>
         )}

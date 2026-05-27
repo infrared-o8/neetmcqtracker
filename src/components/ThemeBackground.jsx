@@ -22,7 +22,7 @@ export function ThemeBackground({ cozyPreset = "default" }) {
     if ((isTwilight || cozyPreset === "monsoon") && rainContainerRef.current && !uiOptimized) {
       // Create rain drops with simplified interaction
       const container = rainContainerRef.current;
-      const dropCount = reduceGpuUsage ? 20 : 80;
+      const dropCount = reduceGpuUsage ? 15 : 40;
 
       const drops = [];
       for (let i = 0; i < dropCount; i++) {
@@ -35,28 +35,9 @@ export function ThemeBackground({ cozyPreset = "default" }) {
         drops.push(drop);
       }
 
-      // Simple interaction: fade drops when they reach middle of screen (where cards are)
-      // Only run this if GPU usage isn't a concern
-      const handleScroll = () => {
-        if (reduceGpuUsage) return;
-        const scrollY = window.scrollY;
-        drops.forEach((drop) => {
-          const rect = drop.getBoundingClientRect();
-          if (rect.top > window.innerHeight * 0.3 && rect.top < window.innerHeight * 0.7) {
-            drop.style.opacity = "0.3";
-          } else {
-            drop.style.opacity = "1";
-          }
-        });
-      };
-
-      if (!reduceGpuUsage) {
-        window.addEventListener("scroll", handleScroll);
-        handleScroll();
-      }
+      // Interaction removed: getBoundingClientRect on scroll is too expensive for performance
 
       return () => {
-        window.removeEventListener("scroll", handleScroll);
         container.innerHTML = "";
       };
     }

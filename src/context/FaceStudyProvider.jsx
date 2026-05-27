@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as blazeface from "@tensorflow-models/blazeface";
-import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 import { FaceStudyContext } from "./faceStudyContext";
 import { useTrackerStore } from "../store/useTrackerStore";
@@ -14,11 +13,9 @@ export function FaceStudyProvider({ children }) {
   const preferences = useTrackerStore((s) => s.preferences);
 
   const [active, setActive] = useState(false);
-  // ... rest of state ...
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [faceDetected, setFaceDetected] = useState(false);
-  const [phoneDetected, setPhoneDetected] = useState(false);
   const [confidence, setConfidence] = useState(0);
   const [secondsTowardMinute, setSecondsTowardMinute] = useState(0);
   const [minuteBurst, setMinuteBurst] = useState(null);
@@ -26,7 +23,6 @@ export function FaceStudyProvider({ children }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const faceModelRef = useRef(null);
-  const objectModelRef = useRef(null);
   const tickRef = useRef(null);
   const consecutiveRef = useRef(0);
 
@@ -54,7 +50,6 @@ export function FaceStudyProvider({ children }) {
     if (videoRef.current) videoRef.current.srcObject = null;
     setActive(false);
     setFaceDetected(false);
-    setPhoneDetected(false);
     setConfidence(0);
     consecutiveRef.current = 0;
     setSecondsTowardMinute(0);
@@ -64,10 +59,9 @@ export function FaceStudyProvider({ children }) {
   const runDetectionCycle = useCallback(async () => {
     const video = videoRef.current;
     const faceModel = faceModelRef.current;
-    const objectModel = objectModelRef.current;
 
     // Guard: Stop if component unmounted or camera stopped
-    if (!active || !video || !faceModel || !objectModel) return;
+    if (!active || !video || !faceModel) return;
 
     const detectionInterval = 
       preferences.aiDetectionRate === "power-save" ? 3000 : 
@@ -80,10 +74,7 @@ export function FaceStudyProvider({ children }) {
     }
 
     try {
-      const [faces, objects] = await Promise.all([
-        faceModel.estimateFaces(video, false),
-        objectModel.detect(video),
-      ]);
+      const faces = await faceModel.estimateFaces(video, false);
 
       const bestFace = faces.length > 0 ? Math.max(...faces.map(p => {
         const prob = p.probability;
@@ -94,10 +85,7 @@ export function FaceStudyProvider({ children }) {
       const hasFace = bestFace >= FACE_THRESHOLD;
       setFaceDetected(hasFace);
 
-      const hasPhone = objects.some(obj => obj.class === "cell phone" && obj.score > 0.5);
-      setPhoneDetected(hasPhone);
-
-      if (hasFace && !hasPhone) {
+      if (hasFace) {
         const increment = detectionInterval / 1000;
         consecutiveRef.current += increment;
         setSecondsTowardMinute(Math.floor(consecutiveRef.current));
@@ -108,10 +96,6 @@ export function FaceStudyProvider({ children }) {
           consecutiveRef.current = 0;
           setSecondsTowardMinute(0);
         }
-      } else if (hasPhone) {
-        const penalty = (detectionInterval / 1000) * 2;
-        consecutiveRef.current = Math.max(0, consecutiveRef.current - penalty);
-        setSecondsTowardMinute(Math.floor(consecutiveRef.current));
       }
     } catch (err) {
       console.error("Detection error cycle:", err);
@@ -137,9 +121,6 @@ export function FaceStudyProvider({ children }) {
       
       if (!faceModelRef.current) {
         faceModelRef.current = await blazeface.load();
-      }
-      if (!objectModelRef.current) {
-        objectModelRef.current = await cocoSsd.load();
       }
 
       // Step 2: Request Camera Stream
@@ -196,7 +177,6 @@ export function FaceStudyProvider({ children }) {
     loading,
     error,
     faceDetected,
-    phoneDetected,
     confidence,
     secondsTowardMinute,
     minuteBurst,

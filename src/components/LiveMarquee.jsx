@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
 const MOCK_UPDATES = [
   "user_482 just broke a 45-MCQ combo in organic chemistry.",
@@ -10,7 +10,7 @@ const MOCK_UPDATES = [
   "chem_ninja hit 5000 total MCQs solved.",
 ];
 
-export function LiveMarquee() {
+export const LiveMarquee = React.memo(function LiveMarquee() {
   const [updates] = useState(MOCK_UPDATES);
 
   return (
@@ -38,4 +38,4 @@ export function LiveMarquee() {
       `}</style>
     </div>
   );
-}
+});
