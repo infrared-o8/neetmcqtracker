@@ -50,13 +50,20 @@ export function RoomSidebar({ participantCount = 0, isMicOpen = false }) {
     if (!localParticipant || !isMicOpen) return;
     const nextState = isMuted; // If currently muted, we want to enable (nextState = true)
     
-    const prefs = useTrackerStore.getState().preferences;
-    await localParticipant.setMicrophoneEnabled(nextState, {
-      noiseSuppression: prefs.micNoiseSuppression,
-      echoCancellation: prefs.micVoiceIsolation,
-      autoGainControl: prefs.micVoiceIsolation,
-    });
-    setIsMuted(!nextState);
+    try {
+      const prefs = useTrackerStore.getState().preferences;
+      // LiveKit handles permission requests automatically
+      await localParticipant.setMicrophoneEnabled(nextState, {
+        noiseSuppression: prefs.micNoiseSuppression,
+        echoCancellation: prefs.micVoiceIsolation,
+        autoGainControl: prefs.micVoiceIsolation,
+      });
+      // Only update UI state if hardware successfully activated
+      setIsMuted(!nextState);
+    } catch (e) {
+      console.warn("Failed to toggle microphone hardware:", e);
+      alert("Microphone access denied. Please check your browser permissions or ensure no other app is using your mic.");
+    }
   };
 
   // Keep draft in sync with store if store changes externally
@@ -110,15 +117,38 @@ export function RoomSidebar({ participantCount = 0, isMicOpen = false }) {
         <ToggleButton 
           active={!isCamOff} 
           onClick={() => {
-            setCamOff(!isCamOff);
-            localParticipant?.setCameraEnabled(isCamOff);
+            const nextState = !isCamOff;
+            setCamOff(nextState);
+            if (localParticipant) {
+              const camPub = localParticipant.getTrackPublication(Track.Source.Camera);
+              if (camPub && camPub.track && camPub.track.mediaStreamTrack) {
+                camPub.track.mediaStreamTrack.enabled = !nextState;
+              }
+            }
           }}
           icon={isCamOff ? CameraOff : Camera}
           label={isCamOff ? "Cam Off" : "Cam On"}
         />
         <ToggleButton 
           active={isBreakMode} 
-          onClick={() => setBreakMode(!isBreakMode)}
+          onClick={() => {
+            const nextBreak = !isBreakMode;
+            setBreakMode(nextBreak);
+            if (localParticipant) {
+              const camPub = localParticipant.getTrackPublication(Track.Source.Camera);
+              if (nextBreak) {
+                setCamOff(true);
+                if (camPub && camPub.track && camPub.track.mediaStreamTrack) {
+                  camPub.track.mediaStreamTrack.enabled = false;
+                }
+              } else {
+                setCamOff(false);
+                if (camPub && camPub.track && camPub.track.mediaStreamTrack) {
+                  camPub.track.mediaStreamTrack.enabled = true;
+                }
+              }
+            }
+          }}
           icon={Coffee}
           label="Break Mode"
         />

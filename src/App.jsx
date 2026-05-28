@@ -26,6 +26,8 @@ import { FRAMES } from "./data/profileDecor";
 import { FaceStudyTopBar } from "./components/study/FaceStudyTopBar";
 import { useMicroRewards } from "./hooks/useMicroRewards";
 import { MobileNav } from "./components/ui/MobileNav";
+import { GlobalPomodoroEngine } from "./components/GlobalPomodoroEngine";
+import { GlobalMiniTimer } from "./components/GlobalMiniTimer";
 import { Camera, X, Check, Brain, UserCircle, ArrowRight, Loader2 } from "lucide-react";
 
 const MotionDiv = motion.div;
@@ -62,8 +64,19 @@ function NewUserOnboarding() {
     }, 100);
     return () => clearTimeout(timer);
   }, [totalSolved, totalPagesRead, studyMinutes, displayName]);
+
+  useEffect(() => {
+    const handleGlobalClose = () => {
+      if (show && nameInput.trim()) {
+        handleSave(new Event('submit'));
+      }
+    };
+    window.addEventListener('close-overlays', handleGlobalClose);
+    return () => window.removeEventListener('close-overlays', handleGlobalClose);
+  }, [show, nameInput]);
+
   const handleSave = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!nameInput.trim()) return;
     setLoading(true);
     // Artificial delay for feel
@@ -119,7 +132,7 @@ function NewUserOnboarding() {
             </form>
 
             <p className="mt-6 text-[10px] font-black uppercase tracking-widest text-zinc-700">
-              You can change this anytime in settings
+              You can change this anytime in settings. Press Ctrl+Enter to confirm.
             </p>
           </motion.div>
         </motion.div>
@@ -155,6 +168,16 @@ function CameraPersistenceLayer() {
     setWasOnDashboard(isDashboard);
   }, [location.pathname, active, navigationPersistence, stopCamera, wasOnDashboard]);
 
+  useEffect(() => {
+    const handleGlobalClose = () => {
+      if (showPrompt) {
+        handleChoice('keep');
+      }
+    };
+    window.addEventListener('close-overlays', handleGlobalClose);
+    return () => window.removeEventListener('close-overlays', handleGlobalClose);
+  }, [showPrompt]);
+
   const handleChoice = (choice) => {
     setPersistence(choice);
     setShowPrompt(false);
@@ -188,7 +211,7 @@ function CameraPersistenceLayer() {
                   onClick={() => handleChoice('keep')}
                   className="flex w-full items-center justify-center gap-3 rounded-xl bg-cyan-600 py-4 font-black uppercase tracking-widest text-white shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-500"
                 >
-                  <Check className="h-4 w-4" /> Keep Tracking
+                  <Check className="h-4 w-4" /> Keep Tracking (Ctrl+Enter)
                 </button>
                 <button 
                   onClick={() => handleChoice('stop')}
@@ -265,6 +288,10 @@ function ClerkSync() {
   return null;
 }
 
+import { matchShortcut } from "./utils/keyboard";
+
+// ...
+
 function App() {
   const ensurePlayerId = useProfileStore((s) => s.ensurePlayerId);
   const syncTags = useLogbookStore((s) => s.syncTags);
@@ -277,6 +304,20 @@ function App() {
     ensurePlayerId();
     syncTags(); // Fix old local storage tags
   }, [ensurePlayerId, syncTags]);
+
+  // Global closeOverlays handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const prefs = useTrackerStore.getState().preferences;
+      const shortcut = prefs.shortcuts?.closeOverlays || "Ctrl+Enter";
+      
+      if (matchShortcut(e, shortcut)) {
+        window.dispatchEvent(new CustomEvent('close-overlays'));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Global click listener for snappy audio feedback and AudioContext activation
   useEffect(() => {
@@ -308,6 +349,8 @@ function App() {
           <CameraPersistenceLayer />
           <NewUserOnboarding />
           <QuickInsertPalette />
+          <GlobalPomodoroEngine />
+          <GlobalMiniTimer />
           <MotionDiv
             className="relative z-10 flex min-h-0 flex-1 flex-col"
             initial={{ opacity: 0 }}

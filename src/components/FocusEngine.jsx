@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Play, Pause, RotateCcw, Shield, EyeOff, CheckCircle2, Coffee, Zap, Settings2, Plus, Minus } from "lucide-react";
+import { Play, Pause, RotateCcw, Shield, EyeOff, CheckCircle2, Coffee, Zap, Settings2 } from "lucide-react";
 import { useTrackerStore } from "../store/useTrackerStore";
+import { matchShortcut } from "../utils/keyboard";
 
 /**
  * Rolling Slot-Machine Ticker for Numbers
  */
-function RollingTicker({ value }) {
-  const digits = value.toString().padStart(2, "0").split("");
+function RollingTicker({ value, pad = 2 }) {
+  const digits = value.toString().padStart(pad, "0").split("");
 
   return (
-    <div className="flex gap-1 overflow-hidden h-[1.2em] items-center font-mono text-6xl font-black tracking-tighter text-white">
+    <div className="flex gap-1 overflow-hidden h-[1.2em] items-center font-mono text-4xl sm:text-6xl font-black tracking-tighter text-white">
       {digits.map((digit, idx) => (
         <div key={`${idx}-${digit}`} className="relative h-full w-[0.65em]">
           <AnimatePresence mode="popLayout" initial={false}>
@@ -30,6 +31,21 @@ function RollingTicker({ value }) {
       ))}
     </div>
   );
+}
+
+/**
+ * Formats seconds into HH:MM:SS or DD:HH:MM:SS
+ */
+function formatTimeUnits(totalSeconds) {
+  const w = Math.floor(totalSeconds / (7 * 24 * 3600));
+  let rem = totalSeconds % (7 * 24 * 3600);
+  const d = Math.floor(rem / (24 * 3600));
+  rem = rem % (24 * 3600);
+  const h = Math.floor(rem / 3600);
+  rem = rem % 3600;
+  const m = Math.floor(rem / 60);
+  const s = rem % 60;
+  return { w, d, h, m, s };
 }
 
 /**
@@ -52,7 +68,7 @@ function MechanicalButton({ onClick, children, active = false, className = "", v
 }
 
 /**
- * iPhone-inspired Settings Panel
+ * iPhone-inspired Settings Panel with Typeable Inputs
  */
 function SettingsPanel({ focusMinutes, breakMinutes, onUpdateFocus, onUpdateBreak }) {
   return (
@@ -64,29 +80,25 @@ function SettingsPanel({ focusMinutes, breakMinutes, onUpdateFocus, onUpdateBrea
 
       <div className="space-y-4">
         <div className="rounded-2xl bg-white/5 p-4 border border-white/5">
-          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-3">Focus Block</p>
-          <div className="flex items-center justify-between">
-            <button onClick={() => onUpdateFocus(focusMinutes - 1)} className="p-1.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white transition">
-              <Minus className="h-3 w-3" />
-            </button>
-            <span className="text-xl font-black text-white">{focusMinutes}m</span>
-            <button onClick={() => onUpdateFocus(focusMinutes + 1)} className="p-1.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white transition">
-              <Plus className="h-3 w-3" />
-            </button>
-          </div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-3">Focus (mins)</p>
+          <input
+            type="number"
+            min="1"
+            value={focusMinutes}
+            onChange={(e) => onUpdateFocus(parseInt(e.target.value) || 1)}
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xl font-black text-white text-center outline-none focus:border-indigo-500/50"
+          />
         </div>
 
         <div className="rounded-2xl bg-white/5 p-4 border border-white/5">
-          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-3">Recharge Block</p>
-          <div className="flex items-center justify-between">
-            <button onClick={() => onUpdateBreak(breakMinutes - 1)} className="p-1.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white transition">
-              <Minus className="h-3 w-3" />
-            </button>
-            <span className="text-xl font-black text-white">{breakMinutes}m</span>
-            <button onClick={() => onUpdateBreak(breakMinutes + 1)} className="p-1.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white transition">
-              <Plus className="h-3 w-3" />
-            </button>
-          </div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-3">Break (mins)</p>
+          <input
+            type="number"
+            min="1"
+            value={breakMinutes}
+            onChange={(e) => onUpdateBreak(parseInt(e.target.value) || 1)}
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xl font-black text-white text-center outline-none focus:border-orange-500/50"
+          />
         </div>
       </div>
     </div>
@@ -133,7 +145,6 @@ function SessionHistory({ history }) {
                 {session.duration}m
               </span>
             </div>
-            {/* The "Underline" influenced element */}
             <div className={`mt-1 h-[2px] w-full origin-left bg-gradient-to-r transition-transform duration-500 scale-x-50 group-hover:scale-x-100 ${
               session.type === 'focus' ? 'from-indigo-500/40 to-transparent' : 'from-orange-500/40 to-transparent'
             }`} />
@@ -155,103 +166,71 @@ export function FocusEngine() {
   const addPomodoroSession = useTrackerStore((s) => s.addPomodoroSession);
   const pomodoroHistory = useTrackerStore((s) => s.pomodoroHistory);
   
+  // Use global state instead of local
+  const pState = useTrackerStore(s => s.pomodoroState);
+  const setPState = useTrackerStore(s => s.setPomodoroState);
+  
   const focusMinutes = preferences.pomodoroFocusMinutes || 25;
   const breakMinutes = preferences.pomodoroBreakMinutes || 5;
 
-  const [isActive, setIsActive] = useState(false);
-  const [isBreak, setIsBreak] = useState(false);
-  const [isAntiStrain, setIsAntiStrain] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(focusMinutes * 60);
-  const [elapsedThisMinute, setElapsedThisMinute] = useState(0);
+  const isActive = pState.isActive;
+  const isBreak = pState.isBreak;
+  const secondsLeft = pState.secondsLeft;
 
-  const timerRef = useRef(null);
+  const [isAntiStrain, setIsAntiStrain] = useState(false);
+  const prevSettingsRef = useRef({ focusMinutes, breakMinutes });
 
   // Sync timer when settings change and timer is NOT active
   useEffect(() => {
+    const prev = prevSettingsRef.current;
     if (!isActive) {
-      setSecondsLeft((isBreak ? breakMinutes : focusMinutes) * 60);
+      if (prev.focusMinutes !== focusMinutes && !isBreak) {
+        setPState({ secondsLeft: focusMinutes * 60 });
+      } else if (prev.breakMinutes !== breakMinutes && isBreak) {
+        setPState({ secondsLeft: breakMinutes * 60 });
+      }
     }
-  }, [focusMinutes, breakMinutes, isBreak, isActive]);
-
-  const triggerConfetti = useCallback(() => {
-    const duration = 2 * 1000;
-    const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-
-    const randomInRange = (min, max) => Math.random() * (max - min) + min;
-
-    const interval = setInterval(function() {
-      const timeLeft = animationEnd - Date.now();
-      if (timeLeft <= 0) return clearInterval(interval);
-
-      const particleCount = 50 * (timeLeft / duration);
-      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
-      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-    }, 250);
-  }, []);
+    prevSettingsRef.current = { focusMinutes, breakMinutes };
+  }, [focusMinutes, breakMinutes, isBreak, isActive, setPState]);
 
   const resetTimer = (mins) => {
-    setIsActive(false);
-    setSecondsLeft(mins * 60);
-    setElapsedThisMinute(0);
+    setPState({ isActive: false, secondsLeft: mins * 60 });
   };
 
-  const toggleTimer = () => setIsActive(!isActive);
+  const toggleTimer = () => {
+    setPState({ isActive: !isActive });
+  };
 
   const enterBreak = useCallback(() => {
     addPomodoroSession({ type: 'focus', duration: focusMinutes });
-    setIsBreak(true);
-    setIsActive(false);
-    setSecondsLeft(breakMinutes * 60);
-    setElapsedThisMinute(0);
-  }, [addPomodoroSession, focusMinutes, breakMinutes]);
+    setPState({ isBreak: true, isActive: false, secondsLeft: breakMinutes * 60 });
+  }, [addPomodoroSession, focusMinutes, breakMinutes, setPState]);
 
   const exitBreak = useCallback(() => {
     addPomodoroSession({ type: 'break', duration: breakMinutes });
-    setIsBreak(false);
-    setIsActive(false);
-    setSecondsLeft(focusMinutes * 60);
-    setElapsedThisMinute(0);
-  }, [addPomodoroSession, focusMinutes, breakMinutes]);
-
-  useEffect(() => {
-    if (isActive && secondsLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            setIsActive(false);
-            triggerConfetti();
-            if (!isBreak) enterBreak();
-            else exitBreak();
-            return 0;
-          }
-          return prev - 1;
-        });
-
-        if (!isBreak) {
-          setElapsedThisMinute((prev) => {
-            if (prev >= 59) {
-              addStudyMinute(); // Adds 0.5 AP via gamification logic
-              return 0;
-            }
-            return prev + 1;
-          });
-        }
-      }, 1000);
-    } else {
-      clearInterval(timerRef.current);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isActive, isBreak, addStudyMinute, enterBreak, exitBreak, triggerConfetti]);
+    setPState({ isBreak: false, isActive: false, secondsLeft: focusMinutes * 60 });
+  }, [addPomodoroSession, focusMinutes, breakMinutes, setPState]);
 
   // Keyboard Listeners
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.code === "Space") {
+      const prefs = useTrackerStore.getState().preferences;
+      const shortcuts = prefs.shortcuts || {};
+      
+      const isToggle = matchShortcut(e, shortcuts.toggleTimer || "Space");
+      const isSkip = matchShortcut(e, shortcuts.skipTimer || "Escape");
+
+      // Prevent triggering if typing in an input
+      const isInput =
+        e.target instanceof HTMLElement &&
+        (e.target.tagName === "INPUT" ||
+          e.target.tagName === "TEXTAREA" ||
+          e.target.isContentEditable);
+
+      if (isToggle && !isInput) {
         e.preventDefault();
         toggleTimer();
-      } else if (e.code === "Escape") {
+      } else if (isSkip && !isInput) {
         e.preventDefault();
         if (isBreak) exitBreak();
         else enterBreak();
@@ -261,8 +240,7 @@ export function FocusEngine() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isBreak, enterBreak, exitBreak]);
 
-  const mins = Math.floor(secondsLeft / 60);
-  const secs = secondsLeft % 60;
+  const { w, d, h, m, s } = formatTimeUnits(secondsLeft);
 
   const containerClass = `relative flex flex-col md:flex-row gap-8 overflow-hidden rounded-3xl p-6 transition-all duration-700 ${
     isAntiStrain 
@@ -281,13 +259,13 @@ export function FocusEngine() {
         <SettingsPanel 
           focusMinutes={focusMinutes} 
           breakMinutes={breakMinutes}
-          onUpdateFocus={(val) => setPreferences({ pomodoroFocusMinutes: Math.max(1, val) })}
-          onUpdateBreak={(val) => setPreferences({ pomodoroBreakMinutes: Math.max(1, val) })}
+          onUpdateFocus={(val) => setPreferences({ pomodoroFocusMinutes: val })}
+          onUpdateBreak={(val) => setPreferences({ pomodoroBreakMinutes: val })}
         />
 
         {/* Main Focus Area */}
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-8">
+        <div className="flex-1 flex flex-col items-center justify-center min-w-0 overflow-hidden">
+          <div className="flex w-full items-center justify-between mb-8">
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full ${isActive ? "animate-pulse " + (isBreak ? "bg-orange-400" : "bg-indigo-400") : "bg-zinc-600"}`} />
               <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
@@ -304,28 +282,27 @@ export function FocusEngine() {
             </button>
           </div>
 
-          <div className="flex flex-col items-center justify-center py-6">
-            <div className="flex items-center gap-4 select-none">
-              <RollingTicker value={mins} />
-              <span className={`text-4xl font-black text-zinc-800 ${isAntiStrain ? "text-zinc-700" : ""}`}>:</span>
-              <RollingTicker value={secs} />
+          <div className="flex flex-col items-center justify-center py-6 w-full max-w-full">
+            <div className="flex items-center gap-2 sm:gap-4 select-none flex-wrap justify-center">
+              {w > 0 && <><RollingTicker value={w} /><span className="text-xl sm:text-4xl font-black text-zinc-800">w</span></>}
+              {d > 0 && <><RollingTicker value={d} /><span className="text-xl sm:text-4xl font-black text-zinc-800">d</span></>}
+              {(h > 0 || d > 0 || w > 0) && <><RollingTicker value={h} /><span className="text-xl sm:text-4xl font-black text-zinc-800">h</span></>}
+              <RollingTicker value={m} />
+              <span className={`text-xl sm:text-4xl font-black text-zinc-800 ${isAntiStrain ? "text-zinc-700" : ""}`}>:</span>
+              <RollingTicker value={s} />
             </div>
             
-            <p className="mt-4 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+            <p className="mt-4 text-[9px] font-bold text-zinc-600 uppercase tracking-widest text-center">
               {isActive ? (isBreak ? "Absorbing energy..." : "Deep work protocol active") : "Ready for next cycle"}
             </p>
           </div>
 
-          <div className="mt-10 flex items-center justify-center gap-4">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <MechanicalButton onClick={toggleTimer} active={isActive} variant={isBreak ? "orange" : "indigo"}>
               {isActive ? (
-                <>
-                  <Pause className="h-3 w-3 fill-current" /> Pause
-                </>
+                <><Pause className="h-3 w-3 fill-current" /> Pause</>
               ) : (
-                <>
-                  <Play className="h-3 w-3 fill-current" /> Focus
-                </>
+                <><Play className="h-3 w-3 fill-current" /> {isBreak ? "Start" : "Focus"}</>
               )}
             </MechanicalButton>
 
@@ -340,9 +317,9 @@ export function FocusEngine() {
               }`}
             >
               {isBreak ? (
-                <>Focus <Zap className="h-2 w-2" /></>
+                <>Skip Break <Zap className="h-2 w-2" /></>
               ) : (
-                <>Break <Coffee className="h-2 w-2" /></>
+                <>Skip Focus <Coffee className="h-2 w-2" /></>
               )}
             </button>
           </div>
@@ -353,7 +330,7 @@ export function FocusEngine() {
 
         {/* Accessibility ARIA updates */}
         <div className="sr-only" aria-live="polite">
-          Timer is {isActive ? "running" : "paused"}. {mins} minutes and {secs} seconds remaining.
+          Timer is {isActive ? "running" : "paused"}. {w} weeks, {d} days, {h} hours, {m} minutes and {s} seconds remaining.
         </div>
       </div>
     </>

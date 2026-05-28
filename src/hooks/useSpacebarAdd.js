@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { useTrackerStore } from "../store/useTrackerStore";
+import { matchShortcut } from "../utils/keyboard";
 
 export function useSpacebarAdd(onAdd) {
   useEffect(() => {
@@ -9,7 +11,10 @@ export function useSpacebarAdd(onAdd) {
           event.target.tagName === "TEXTAREA" ||
           event.target.isContentEditable);
 
-      if (event.code === "Space" && !isInput) {
+      const prefs = useTrackerStore.getState().preferences;
+      const shortcut = prefs.shortcuts?.quickAdd || "Alt+a";
+
+      if (matchShortcut(event, shortcut) && !isInput) {
         event.preventDefault();
         onAdd();
       }

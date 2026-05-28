@@ -84,7 +84,8 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     }
   }, [serverUrl, getToken, activePlayerId, clerkUserId, isLegacyServer]);
 
-  const pushStats = useCallback(async () => {
+  const pushStats = useCallback(async (options = {}) => {
+    const { isCorrection = false } = options;
     if (!activePlayerId || Date.now() < cooldownRef.current) return false;
     try {
       const { 
@@ -121,6 +122,7 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
           pendingCrates,
           savedCrates,
           totalCratesOpened,
+          isCorrection, // SENT TO BACKEND TO OVERRIDE MATH.MAX
         }),
       });
 
@@ -149,9 +151,9 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   }, [serverUrl, getSnapshot, setLastSyncedAt, getToken, activePlayerId, clerkUserId, isLegacyServer]);
 
   const syncNow = useCallback(async (options = {}) => {
-    const { force = false } = options;
+    const { force = false, forcePush = false } = options;
     if (!authLoaded) return { ok: false, reason: "auth-loading" };
-    if (Date.now() < cooldownRef.current && !force) return { ok: false, reason: "rate-limited" };
+    if (Date.now() < cooldownRef.current && !force && !forcePush) return { ok: false, reason: "rate-limited" };
     
     if (!clerkUserId) ensurePlayerId();
     if (!activePlayerId) return { ok: false, reason: "no-player" };
@@ -160,80 +162,77 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
     if (!health.ok) return { ok: false, reason: isRateLimitedRef.current ? "rate-limited" : "offline" };
 
     try {
-      // 0. Identity Alignment: Ensure local playerId matches Clerk ID
+      // 0. Identity Alignment
       if (clerkUserId && useProfileStore.getState().playerId !== clerkUserId) {
         useProfileStore.setState({ playerId: clerkUserId });
       }
 
-      // 1. Initial Handshake: Register and check existing cloud state
+      // 1. Initial Handshake: Register
       await register();
       
-      // In Legacy Mode, we skip the aggressive "Restore" pull and just push, UNLESS forced
-      if (isLegacyServer && !force) {
+      if (isLegacyServer && !force && !forcePush) {
         const pushed = await pushStats();
         return { ok: pushed, reason: pushed ? null : "sync-failed" };
       }
 
+      // 2. Fetch cloud state
       const res = await apiFetch(serverUrl, `/api/players/${activePlayerId}`);
       if (res.ok) {
         const cloudData = await res.json();
         const localStats = getSnapshot();
         const localProfile = useProfileStore.getState();
 
-        // 2. Authoritative Sync: Align local state with MongoDB Cloud
-        const cloudActivity = cloudData.activityTotal || 0;
-        const localActivity = localStats.activityTotal || 0;
-        
-        // If forced, we always merge. Otherwise only if cloud has more progress.
-        const shouldRestore = force || cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0);
-
-        if (shouldRestore) {
-          console.log("[Sync] Restoration triggered. Aligning local state with MongoDB Cloud.");
+        // If forcePush is TRUE, we skip the restore logic entirely.
+        // We want the cloud to accept our (potentially lower) local numbers.
+        if (!forcePush) {
+          const cloudActivity = cloudData.activityTotal || 0;
+          const localActivity = localStats.activityTotal || 0;
           
-          const currentStore = useTrackerStore.getState();
-          const mergedDailyLogs = { ...currentStore.dailyLogs };
-          Object.entries(cloudData.dailyLogs || {}).forEach(([date, count]) => {
-            mergedDailyLogs[date] = Math.max(mergedDailyLogs[date] || 0, count);
-          });
+          const shouldRestore = force || cloudActivity > localActivity || (cloudData.totalSolved || 0) > (localStats.totalSolved || 0);
 
-          const mergedDailyPageLogs = { ...currentStore.dailyPageLogs };
-          Object.entries(cloudData.dailyPageLogs || {}).forEach(([date, count]) => {
-            mergedDailyPageLogs[date] = Math.max(mergedDailyPageLogs[date] || 0, count);
-          });
+          if (shouldRestore) {
+            console.log("[Sync] Restoration triggered. Aligning local state with MongoDB Cloud.");
+            
+            const currentStore = useTrackerStore.getState();
+            const mergedDailyLogs = { ...currentStore.dailyLogs };
+            Object.entries(cloudData.dailyLogs || {}).forEach(([date, count]) => {
+              mergedDailyLogs[date] = Math.max(mergedDailyLogs[date] || 0, count);
+            });
 
-          useTrackerStore.setState({
-            xp: Math.max(localStats.xp || 0, cloudData.xp || 0),
-            totalSolved: Math.max(localStats.totalSolved || 0, cloudData.totalSolved || 0),
-            totalPagesRead: Math.max(localStats.totalPagesRead || 0, cloudData.totalPagesRead || 0),
-            studyMinutes: Math.max(localStats.studyMinutes || 0, cloudData.studyMinutes || 0),
-            streak: Math.max(currentStore.streak || 0, cloudData.streak || 0),
-            bestStreak: Math.max(currentStore.bestStreak || 0, cloudData.bestStreak || 0),
-            dailyLogs: mergedDailyLogs,
-            dailyPageLogs: mergedDailyPageLogs,
-          });
+            const mergedDailyPageLogs = { ...currentStore.dailyPageLogs };
+            Object.entries(cloudData.dailyPageLogs || {}).forEach(([date, count]) => {
+              mergedDailyPageLogs[date] = Math.max(mergedDailyPageLogs[date] || 0, count);
+            });
 
-          // Also update profile store with cloud identity
-          useProfileStore.setState({
-            displayName: cloudData.displayName || localProfile.displayName,
-            decor: { ...localProfile.decor, ...(cloudData.decor || {}) },
-            unlockedItems: cloudData.unlockedItems && cloudData.unlockedItems.length > localProfile.unlockedItems.length 
-              ? cloudData.unlockedItems 
-              : localProfile.unlockedItems,
-            pendingCrates: cloudData.pendingCrates || localProfile.pendingCrates,
-            savedCrates: cloudData.savedCrates || localProfile.savedCrates,
-            totalCratesOpened: Math.max(localProfile.totalCratesOpened, cloudData.totalCratesOpened || 0),
-          });
+            useTrackerStore.setState({
+              xp: Math.max(localStats.xp || 0, cloudData.xp || 0),
+              totalSolved: Math.max(localStats.totalSolved || 0, cloudData.totalSolved || 0),
+              totalPagesRead: Math.max(localStats.totalPagesRead || 0, cloudData.totalPagesRead || 0),
+              studyMinutes: Math.max(localStats.studyMinutes || 0, cloudData.studyMinutes || 0),
+              streak: Math.max(currentStore.streak || 0, cloudData.streak || 0),
+              bestStreak: Math.max(currentStore.bestStreak || 0, cloudData.bestStreak || 0),
+              dailyLogs: mergedDailyLogs,
+              dailyPageLogs: mergedDailyPageLogs,
+            });
+
+            useProfileStore.setState({
+              displayName: cloudData.displayName || localProfile.displayName,
+              decor: { ...localProfile.decor, ...(cloudData.decor || {}) },
+              unlockedItems: cloudData.unlockedItems && cloudData.unlockedItems.length > localProfile.unlockedItems.length 
+                ? cloudData.unlockedItems 
+                : localProfile.unlockedItems,
+              pendingCrates: cloudData.pendingCrates || localProfile.pendingCrates,
+              savedCrates: cloudData.savedCrates || localProfile.savedCrates,
+              totalCratesOpened: Math.max(localProfile.totalCratesOpened, cloudData.totalCratesOpened || 0),
+            });
+          }
+        } else {
+          console.log("[Sync] Force Push active. Overriding cloud data with local correction.");
         }
       }
       
-      // 3. Push local changes (includes merge results)
-      const pushed = await pushStats();
-      if (pushed) {
-        console.log("[Sync] Handshake successful. Cloud profile matched.");
-      } else {
-        console.warn("[Sync] Handshake completed but stats push was unsuccessful.");
-      }
-      
+      // 3. Push local changes
+      const pushed = await pushStats({ isCorrection: forcePush });
       return { ok: pushed, reason: pushed ? null : "sync-failed" };
     } catch (e) {
       console.error("[Sync] Critical sync error:", e);
@@ -306,9 +305,16 @@ export function useLeaderboardSync({ pollInterval = 15000, enabled = true } = {}
   useEffect(() => {
     if (!enabled) return undefined;
     const onStudyMinute = () => scheduleSync();
+    const onForceSync = () => syncNow({ forcePush: true });
+
     window.addEventListener("neet:study-minute", onStudyMinute);
-    return () => window.removeEventListener("neet:study-minute", onStudyMinute);
-  }, [enabled, scheduleSync]);
+    window.addEventListener("neet:activity-sync", onForceSync);
+
+    return () => {
+      window.removeEventListener("neet:study-minute", onStudyMinute);
+      window.removeEventListener("neet:activity-sync", onForceSync);
+    };
+  }, [enabled, scheduleSync, syncNow]);
 
   useEffect(() => {
     if (!enabled) return undefined;

@@ -107,6 +107,8 @@ export async function upsertPlayer({ playerId, displayName, decor }) {
 }
 
 export async function updateStats(playerId, stats) {
+  const isCorrection = stats.isCorrection === true;
+
   if (!isMongoConnected()) {
     const user = memoryStore.users.get(playerId);
     if (!user) return false;
@@ -116,10 +118,17 @@ export async function updateStats(playerId, stats) {
       return isNaN(n) ? fallback : n;
     };
 
-    user.xp = Math.max(safeNum(user.xp), safeNum(stats.xp));
-    user.totalSolved = Math.max(safeNum(user.totalSolved), safeNum(stats.totalSolved));
-    user.totalPagesRead = Math.max(safeNum(user.totalPagesRead), safeNum(stats.totalPagesRead));
-    user.studyMinutes = Math.max(safeNum(user.studyMinutes), safeNum(stats.studyMinutes));
+    if (isCorrection) {
+      user.xp = safeNum(stats.xp);
+      user.totalSolved = safeNum(stats.totalSolved);
+      user.totalPagesRead = safeNum(stats.totalPagesRead);
+      user.studyMinutes = safeNum(stats.studyMinutes);
+    } else {
+      user.xp = Math.max(safeNum(user.xp), safeNum(stats.xp));
+      user.totalSolved = Math.max(safeNum(user.totalSolved), safeNum(stats.totalSolved));
+      user.totalPagesRead = Math.max(safeNum(user.totalPagesRead), safeNum(stats.totalPagesRead));
+      user.studyMinutes = Math.max(safeNum(user.studyMinutes), safeNum(stats.studyMinutes));
+    }
     
     if (stats.level !== undefined) user.level = safeNum(stats.level, 1);
     if (stats.streak !== undefined) user.streak = safeNum(stats.streak);
@@ -142,12 +151,20 @@ export async function updateStats(playerId, stats) {
     const oldSolved = safeNum(user.totalSolved);
     const newSolved = safeNum(stats.totalSolved);
 
-    user.xp = Math.max(safeNum(user.xp), safeNum(stats.xp));
-    user.totalSolved = Math.max(oldSolved, newSolved);
-    user.totalPagesRead = Math.max(safeNum(user.totalPagesRead), safeNum(stats.totalPagesRead));
-    user.studyMinutes = Math.max(safeNum(user.studyMinutes), safeNum(stats.studyMinutes));
+    if (isCorrection) {
+      console.log(`[Stats] Player ${playerId} is performing a manual correction.`);
+      user.xp = safeNum(stats.xp);
+      user.totalSolved = safeNum(stats.totalSolved);
+      user.totalPagesRead = safeNum(stats.totalPagesRead);
+      user.studyMinutes = safeNum(stats.studyMinutes);
+    } else {
+      user.xp = Math.max(safeNum(user.xp), safeNum(stats.xp));
+      user.totalSolved = Math.max(oldSolved, newSolved);
+      user.totalPagesRead = Math.max(safeNum(user.totalPagesRead), safeNum(stats.totalPagesRead));
+      user.studyMinutes = Math.max(safeNum(user.studyMinutes), safeNum(stats.studyMinutes));
+    }
     
-    if (newSolved > oldSolved) {
+    if (!isCorrection && newSolved > oldSolved) {
       console.log(`[Stats] Player ${playerId} progressed: ${oldSolved} -> ${newSolved} MCQs`);
     }
 
@@ -172,7 +189,8 @@ export async function updateStats(playerId, stats) {
     if (stats.dailyLogs && typeof stats.dailyLogs === "object") {
       const merged = { ...(user.dailyLogs || {}) };
       Object.entries(stats.dailyLogs).forEach(([date, count]) => {
-        merged[date] = Math.max(safeNum(merged[date]), safeNum(count));
+        if (isCorrection) merged[date] = safeNum(count);
+        else merged[date] = Math.max(safeNum(merged[date]), safeNum(count));
       });
       user.dailyLogs = merged;
       user.markModified("dailyLogs");
@@ -181,7 +199,8 @@ export async function updateStats(playerId, stats) {
     if (stats.dailyPageLogs && typeof stats.dailyPageLogs === "object") {
       const merged = { ...(user.dailyPageLogs || {}) };
       Object.entries(stats.dailyPageLogs).forEach(([date, count]) => {
-        merged[date] = Math.max(safeNum(merged[date]), safeNum(count));
+        if (isCorrection) merged[date] = safeNum(count);
+        else merged[date] = Math.max(safeNum(merged[date]), safeNum(count));
       });
       user.dailyPageLogs = merged;
       user.markModified("dailyPageLogs");

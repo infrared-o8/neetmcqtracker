@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "../utils/api";
 import { useTrackerStore } from "../store/useTrackerStore";
 import { useLogbookStore } from "../store/useLogbookStore";
+import { matchShortcut } from "../utils/keyboard";
 import { 
   Zap, 
   X, 
@@ -28,20 +29,39 @@ export function QuickInsertPalette() {
   const sectionTags = useLogbookStore(s => s.sectionTags);
   const inputRef = useRef(null);
 
-  // --- KEYBOARD TRIGGER (Ctrl+Space) ---
+  // --- KEYBOARD TRIGGER ---
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.code === "Space") {
+      const prefs = useTrackerStore.getState().preferences;
+      const shortcuts = prefs.shortcuts || {};
+      
+      const isToggle = matchShortcut(e, shortcuts.togglePalette || "Ctrl+Space");
+      const isCloseSubmit = matchShortcut(e, shortcuts.closeOverlays || "Ctrl+Enter");
+      // Hardcode escape to always close just in case
+      const isEscape = matchShortcut(e, "Escape");
+
+      // Toggle Palette
+      if (isToggle) {
         e.preventDefault();
         setIsOpen(prev => !prev);
       }
-      if (e.key === "Escape" && isOpen) {
+      
+      if (isEscape && isOpen) {
         setIsOpen(false);
+      }
+      
+      // Submit
+      if (isCloseSubmit && isOpen) {
+        e.preventDefault();
+        if (inputValue.trim()) {
+           const { text, header } = getParsedPayload(inputValue);
+           triggerBridge("append", text, header);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, inputValue]);
 
   useEffect(() => {
     if (isOpen) {
@@ -215,7 +235,8 @@ export function QuickInsertPalette() {
                     value={inputValue}
                     onChange={e => setInputValue(e.target.value)}
                     onKeyDown={e => {
-                      if (e.key === "Tab" && suggestions.length > 0) {
+                      const prefs = useTrackerStore.getState().preferences;
+                      if (matchShortcut(e, prefs.shortcuts?.autocompleteTag || "Tab") && suggestions.length > 0) {
                         e.preventDefault();
                         applyAutocomplete(suggestions[0].tag);
                       }
@@ -248,7 +269,7 @@ export function QuickInsertPalette() {
                 <div className="mt-10 flex items-center justify-between border-t border-white/5 pt-8">
                   <div className="flex gap-4">
                     <span className="flex items-center gap-2 text-[10px] font-bold text-zinc-700 uppercase tracking-widest">
-                      <Command className="h-3 w-3" /> + Space to close
+                      <Command className="h-3 w-3" /> + Enter to send to Obsidian
                     </span>
                   </div>
 

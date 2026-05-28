@@ -104,9 +104,9 @@ export const NCERT_BOOKS = [
     subject: "physics",
     class: 11,
     code: "keph1",
-    chapters: 8,
+    chapters: 7,
     chapterNames: [
-      "Physical World", "Units and Measurements", "Motion in a Straight Line", "Motion in a Plane",
+      "Units and Measurements", "Motion in a Straight Line", "Motion in a Plane",
       "Laws of Motion", "Work, Energy and Power", "System of Particles and Rotational Motion", "Gravitation"
     ]
   },
@@ -190,6 +190,20 @@ export function getFlattenedChapters() {
         directUrl: `https://ncert.nic.in/textbook/pdf/${chId}.pdf`,
         thumbnail: `https://ncert.nic.in/textbook/pdf/${book.code}ps.jpg`
       });
+    });
+
+    // Add Answers
+    flat.push({
+      id: `${book.code}an`,
+      title: `Answers`,
+      bookTitle: book.title,
+      subject: book.subject,
+      class: book.class,
+      chNum: "an",
+      tags: [book.subject, `${book.class}th`, "Answers", "Solutions", book.title, "ncert"],
+      url: `https://ncert.nic.in/textbook.php?${book.code}=an-${book.chapters}`,
+      directUrl: `https://ncert.nic.in/textbook/pdf/${book.code}an.pdf`,
+      thumbnail: `https://ncert.nic.in/textbook/pdf/${book.code}ps.jpg`
     });
   });
 

@@ -25,8 +25,11 @@ const AudioRenderer = React.memo(({ identity }) => {
   return <AudioTrack trackRef={micTrack} />;
 });
 
-const CustomVideoTrack = React.memo(({ isMirrored, isCamOff }) => {
-  const trackRef = useTrackRefContext();
+const CustomVideoTrack = React.memo(({ isMirrored, isCamOff, participant }) => {
+  const tracks = useTracks([{ source: Track.Source.Camera }], { onlySubscribed: false });
+  const trackRef = tracks.find(t => t.participant.identity === participant.identity);
+
+  // If there is no track, or it's muted in hardware, or visually toggled off via metadata
   if (!trackRef || trackRef.publication?.isMuted || isCamOff) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-900/80">
@@ -50,8 +53,7 @@ const CustomVideoTrack = React.memo(({ isMirrored, isCamOff }) => {
   );
 });
 
-export const ParticipantTile = React.memo(function ParticipantTile({ trackRef, isMicOpen }) {
-  const participant = trackRef.participant;
+export const ParticipantTile = React.memo(function ParticipantTile({ participant, isMicOpen }) {
   const room = useRoomContext();
   const { identity, metadata } = useParticipantInfo({ participant });
   const isSpeaking = useIsSpeaking(participant);
@@ -148,12 +150,10 @@ export const ParticipantTile = React.memo(function ParticipantTile({ trackRef, i
       >
         <div className={`h-full w-full transition-opacity duration-500 ${isBreak ? 'opacity-40' : 'opacity-100'}`}>
           <ParticipantContext.Provider value={participant}>
-            <TrackRefContext.Provider value={trackRef}>
-              <CustomVideoTrack isMirrored={isMirrored} isCamOff={isCamOff} />
-              {isMicOpen && !participant.isLocal && (
-                <AudioRenderer identity={identity} />
-              )}
-            </TrackRefContext.Provider>
+            <CustomVideoTrack isMirrored={isMirrored} isCamOff={isCamOff} participant={participant} />
+            {isMicOpen && !participant.isLocal && (
+              <AudioRenderer identity={identity} />
+            )}
           </ParticipantContext.Provider>
         </div>
 

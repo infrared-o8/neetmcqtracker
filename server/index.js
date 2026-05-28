@@ -406,6 +406,7 @@ app.put("/api/players/:playerId/stats", authMiddleware, requirePlayer, antiCheat
   }
 
   try {
+    // Pass everything in body, including potential isCorrection flag
     const ok = await updateStats(req.playerId, req.body);
     if (!ok) {
       await upsertPlayer({

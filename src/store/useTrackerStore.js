@@ -32,6 +32,14 @@ const DEFAULT_PREFERENCES = {
   micVoiceIsolation: false,
   pomodoroFocusMinutes: 25,
   pomodoroBreakMinutes: 5,
+  shortcuts: {
+    togglePalette: "Control+Space",
+    closeOverlays: "Control+Enter",
+    autocompleteTag: "Tab",
+    toggleTimer: "Space",
+    skipTimer: "Escape",
+    quickAdd: "Space"
+  }
 };
 
 export const initialState = {
@@ -72,6 +80,12 @@ export const initialState = {
   },
   lastSessionSummary: null,
   pomodoroHistory: [], // [{ id, type: 'focus'|'break', duration, timestamp }]
+  pomodoroState: {
+    isActive: false,
+    isBreak: false,
+    secondsLeft: 25 * 60,
+    lastTick: 0,
+  },
   dashboardLayout: null, // Stores react-grid-layout configuration
 };
 
@@ -353,6 +367,32 @@ export const useTrackerStore = create(
           window.dispatchEvent(new CustomEvent("neet:study-minute"));
         }
       },
+      decrementStudyMinute: (amount = 1) => {
+        set((state) => {
+          const today = getTodayKey();
+          const sameDay = state.studyMinutesDate === today;
+          
+          // Activity Total is (Solved + Pages*0.5 + Minutes*0.5)
+          // XP is strictly 1:1 with Minutes.
+          const nextStudyMinutes = Math.max(0, state.studyMinutes - amount);
+          const nextStudyMinutesToday = sameDay ? Math.max(0, state.studyMinutesToday - amount) : 0;
+          const nextXp = Math.max(0, state.xp - amount);
+          const levelState = getLevelFromXp(nextXp);
+
+          return {
+            studyMinutes: nextStudyMinutes,
+            studyMinutesToday: nextStudyMinutesToday,
+            studyMinutesDate: today,
+            xp: nextXp,
+            level: levelState.level
+          };
+        });
+        
+        // Immediate sync trigger for components
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("neet:activity-sync"));
+        }
+      },
       addPomodoroSession: (session) =>
         set((state) => ({
           pomodoroHistory: [
@@ -360,6 +400,7 @@ export const useTrackerStore = create(
             ...state.pomodoroHistory,
           ].slice(0, 50), // Keep last 50
         })),
+      setPomodoroState: (partial) => set((s) => ({ pomodoroState: { ...s.pomodoroState, ...partial } })),
       setDashboardLayout: (dashboardLayout) => set({ dashboardLayout }),
       resetDashboardLayout: () => set({ dashboardLayout: null }),
       clearAll: () => set({ ...initialState, preferences: get().preferences }),

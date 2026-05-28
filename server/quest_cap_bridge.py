@@ -145,8 +145,16 @@ class QuestCapPro(ctk.CTk):
                 break
         
         if idx == -1:
-            print(f"[ERROR] Target header '{self.target_header}' not found in the note.")
-            return # AVOID fallbacks, just stop
+            print(f"[WARNING] Target header '{self.target_header}' not found. Falling back to default: {DEFAULT_TARGET_HEADING}")
+            self.target_header = DEFAULT_TARGET_HEADING.strip()
+            for i, line in enumerate(lines):
+                if self.target_header in line:
+                    idx = i
+                    break
+            
+            if idx == -1:
+                print(f"[ERROR] Default fallback header '{self.target_header}' also not found. Aborting.")
+                return
 
         print(f"[Bridge] Header matched at line {idx + 1}")
 

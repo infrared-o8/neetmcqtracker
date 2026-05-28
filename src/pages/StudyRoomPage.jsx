@@ -555,7 +555,7 @@ function PasswordModal({ room, onClose, onJoin }) {
     >
       <motion.div 
         initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
-        className="w-full max-sm rounded-[2rem] border border-white/10 bg-zinc-900 p-8 text-center"
+        className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-zinc-900 p-8 text-center"
       >
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-fuchsia-500/10 border border-fuchsia-500/20">
           <ShieldCheck className="h-8 w-8 text-fuchsia-400" />
@@ -627,7 +627,7 @@ function RoomView({
   const trackingMode = useTrackerStore((s) => s.trackingMode);
   const addMcq = useTrackerStore((s) => s.addMcq);
   const addPages = useTrackerStore((s) => s.addPages);
-  const { gridTileSize, setGridTileSize, currentTask, isBreakMode, mirrorVideo } = useLiveRoomStore();
+  const { gridTileSize, setGridTileSize, currentTask, isBreakMode, mirrorVideo, isCamOff } = useLiveRoomStore();
   const { active } = useFaceStudyContext();
 
   const today = getTodayKey();
@@ -654,7 +654,7 @@ function RoomView({
         isBreak={isBreakMode} 
         rank={rank.label} 
         isMirrored={mirrorVideo}
-        isCamOff={!active}
+        isCamOff={isCamOff}
         auraId={auraId}
       />
       <AnimatePresence>
@@ -857,39 +857,20 @@ function RoomSidebarContent({ isMicOpen }) {
 }
 
 function StudyGrid({ isMicOpen }) {
-  const tracks = useTracks(
-    [
-      { source: Track.Source.Camera, name: 'camera' },
-      { source: Track.Source.Microphone, name: 'microphone' },
-      { source: Track.Source.ScreenShare, name: 'screen_share' },
-    ],
-    { onlySubscribed: false },
-  );
-
+  const participants = useParticipants();
   const { pinnedUsers, gridTileSize } = useLiveRoomStore();
 
-  const sortedTracks = useMemo(() => {
-    const map = new Map();
-    tracks.forEach(t => {
-      const identity = t.participant.identity;
-      const existing = map.get(identity);
-      if (!existing || (t.source === Track.Source.Camera && existing.source !== Track.Source.Camera)) {
-        map.set(identity, t);
-      }
-    });
-    
-    const participantTracks = Array.from(map.values());
-    
-    return participantTracks.sort((a, b) => {
-      const aIdentity = a.participant.identity;
-      const bIdentity = b.participant.identity;
+  const sortedParticipants = useMemo(() => {
+    return [...participants].sort((a, b) => {
+      const aIdentity = a.identity;
+      const bIdentity = b.identity;
       if (pinnedUsers.includes(aIdentity) && !pinnedUsers.includes(bIdentity)) return -1;
       if (!pinnedUsers.includes(aIdentity) && pinnedUsers.includes(bIdentity)) return 1;
-      if (a.participant.isLocal && !b.participant.isLocal) return -1;
-      if (!a.participant.isLocal && b.participant.isLocal) return 1;
+      if (a.isLocal && !b.isLocal) return -1;
+      if (!a.isLocal && b.isLocal) return 1;
       return 0;
     });
-  }, [tracks, pinnedUsers]);
+  }, [participants, pinnedUsers]);
 
   const gridCols = {
     small: 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6',
@@ -899,14 +880,14 @@ function StudyGrid({ isMicOpen }) {
 
   return (
     <div className={`grid gap-4 ${gridCols[gridTileSize] || gridCols.medium}`}>
-      {sortedTracks.map((track) => (
+      {sortedParticipants.map((participant) => (
         <ParticipantTile 
-          key={`${track.participant.identity}-${track.source}`} 
-          trackRef={track} 
+          key={participant.identity} 
+          participant={participant} 
           isMicOpen={isMicOpen}
         />
       ))}
-      {sortedTracks.length === 0 && (
+      {sortedParticipants.length === 0 && (
         <div className="col-span-full flex h-64 flex-col items-center justify-center rounded-[3rem] border-2 border-dashed border-white/5 bg-white/5">
           <p className="text-sm font-bold uppercase tracking-widest text-zinc-700 italic">Waiting for Study Collective...</p>
         </div>
@@ -917,10 +898,10 @@ function StudyGrid({ isMicOpen }) {
 
 function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff, auraId }) {
   const { localParticipant } = useLocalParticipant();
-  const isUpdatingRef = useRef(false);
+  const updateTimeoutRef = useRef(null);
 
   useEffect(() => {
-    if (!localParticipant || isUpdatingRef.current) return;
+    if (!localParticipant) return;
 
     const metadataObj = {
       task: task || 'Grinding Modules...',
@@ -934,15 +915,18 @@ function MetadataSync({ task, isBreak, rank, isMirrored, isCamOff, auraId }) {
     const metadataStr = JSON.stringify(metadataObj);
 
     if (localParticipant.metadata !== metadataStr) {
-      isUpdatingRef.current = true;
-      localParticipant.setMetadata(metadataStr)
-        .catch(err => console.warn("Metadata sync timeout (retrying later):", err))
-        .finally(() => {
-          setTimeout(() => {
-            isUpdatingRef.current = false;
-          }, 2000);
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+      
+      updateTimeoutRef.current = setTimeout(() => {
+        localParticipant.setMetadata(metadataStr).catch(err => {
+          console.warn("Metadata sync failed:", err);
         });
+      }, 500); // 500ms debounce
     }
+
+    return () => {
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+    };
   }, [localParticipant, task, isBreak, rank, isMirrored, isCamOff, auraId]);
 
   return null;

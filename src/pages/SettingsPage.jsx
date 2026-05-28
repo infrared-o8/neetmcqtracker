@@ -26,8 +26,77 @@ import {
   Globe,
   Bell,
   Cpu,
-  Monitor
+  Monitor,
+  Command as CommandIcon,
+  Keyboard
 } from "lucide-react";
+
+function ShortcutInput({ label, desc, actionId, currentShortcut, allShortcuts, onChange }) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [error, setError] = useState(null);
+
+  const formatKey = (e) => {
+    const keys = [];
+    if (e.ctrlKey) keys.push("Ctrl");
+    if (e.altKey) keys.push("Alt");
+    if (e.shiftKey) keys.push("Shift");
+    if (e.metaKey) keys.push("Meta");
+    
+    // Ignore modifier-only key presses
+    if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return null;
+
+    let keyName = e.code;
+    if (e.code === "Space") keyName = "Space";
+    else if (e.key === "Enter") keyName = "Enter";
+    else if (e.key === "Tab") keyName = "Tab";
+    else if (e.key === "Escape") keyName = "Escape";
+    else if (e.code.startsWith("Key")) keyName = e.code.replace("Key", "");
+    else if (e.code.startsWith("Digit")) keyName = e.code.replace("Digit", "");
+    else keyName = e.key;
+    
+    keys.push(keyName);
+    return keys.join("+");
+  };
+
+  const handleKeyDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.key === "Escape" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      setIsRecording(false);
+      return;
+    }
+
+    const newShortcut = formatKey(e);
+    if (!newShortcut) return; // Modifier only
+
+    onChange(actionId, newShortcut);
+    setIsRecording(false);
+  };
+
+  return (
+    <div className="flex items-center justify-between py-3 px-1 border-b border-white/5 last:border-0 group">
+      <div className="flex items-center gap-3">
+        <Keyboard className="h-4 w-4 text-zinc-500 group-hover:scale-110 transition" />
+        <div>
+          <p className="text-sm text-zinc-200">{label}</p>
+          <p className="text-[10px] text-zinc-500">{desc}</p>
+        </div>
+      </div>
+      <button
+        onClick={() => setIsRecording(true)}
+        onKeyDown={isRecording ? handleKeyDown : undefined}
+        className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all border ${
+          isRecording 
+            ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-400 animate-pulse' 
+            : 'bg-black/40 border-white/10 text-zinc-300 hover:border-white/30'
+        }`}
+      >
+        {isRecording ? "Press any key..." : (currentShortcut || "Not set")}
+      </button>
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const preferences = useTrackerStore((s) => s.preferences);
@@ -41,6 +110,7 @@ export function SettingsPage() {
   const [videoUrlDraft, setVideoUrlDraft] = useState(preferences.youtubeVideoUrl || "");
   const [devPassword, setDevPassword] = useState("");
   const [showDevToggle, setShowDevToggle] = useState(preferences.devModeEnabled);
+  const [customDecrement, setCustomDecrement] = useState("1");
   const [expandedSections, setExpandedSections] = useState({
     graphics: true,
     audio: true,
@@ -495,6 +565,107 @@ export function SettingsPage() {
         </section>
       )}
 
+      {/* Commands & Shortcuts Section */}
+      {(!searchQuery || "commands shortcuts keybinds keyboard".includes(searchQuery.toLowerCase())) && (
+        <section className={`genz-glass mt-6 rounded-[2rem] border-white/5 overflow-hidden transition-all ${(expandedSections.shortcuts || searchQuery) ? 'bg-black/20' : 'bg-black/10'}`}>
+          <button 
+            onClick={() => toggleSection('shortcuts')}
+            className="flex w-full items-center justify-between p-6 hover:bg-white/5 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                <CommandIcon className="h-4 w-4 text-orange-400" />
+              </div>
+              <h2 className="text-xs uppercase tracking-[0.25em] text-white font-black">Commands & Shortcuts</h2>
+            </div>
+            {(expandedSections.shortcuts || searchQuery) ? <ChevronUp className="h-4 w-4 text-zinc-600" /> : <ChevronDown className="h-4 w-4 text-zinc-600" />}
+          </button>
+          
+          <AnimatePresence>
+            {(expandedSections.shortcuts || searchQuery) && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-6 pb-6 space-y-2"
+              >
+                <div className="rounded-2xl bg-black/40 border border-white/5 p-2">
+                  <ShortcutInput 
+                    label="Toggle Quick Palette" 
+                    desc="Open/Close the Quick Insert Palette" 
+                    actionId="togglePalette"
+                    currentShortcut={preferences.shortcuts?.togglePalette}
+                    allShortcuts={preferences.shortcuts || {}}
+                    onChange={(id, val) => setPreferences({ shortcuts: { ...preferences.shortcuts, [id]: val } })}
+                  />
+                  <ShortcutInput 
+                    label="Close Overlays / Submit Palette" 
+                    desc="Dismiss modals or submit quick notes" 
+                    actionId="closeOverlays"
+                    currentShortcut={preferences.shortcuts?.closeOverlays}
+                    allShortcuts={preferences.shortcuts || {}}
+                    onChange={(id, val) => setPreferences({ shortcuts: { ...preferences.shortcuts, [id]: val } })}
+                  />
+                  <ShortcutInput 
+                    label="Autocomplete Tag" 
+                    desc="Complete #tags in palette" 
+                    actionId="autocompleteTag"
+                    currentShortcut={preferences.shortcuts?.autocompleteTag}
+                    allShortcuts={preferences.shortcuts || {}}
+                    onChange={(id, val) => setPreferences({ shortcuts: { ...preferences.shortcuts, [id]: val } })}
+                  />
+                  <ShortcutInput 
+                    label="Toggle Pomodoro Timer" 
+                    desc="Play/Pause the focus engine" 
+                    actionId="toggleTimer"
+                    currentShortcut={preferences.shortcuts?.toggleTimer}
+                    allShortcuts={preferences.shortcuts || {}}
+                    onChange={(id, val) => setPreferences({ shortcuts: { ...preferences.shortcuts, [id]: val } })}
+                  />
+                  <ShortcutInput 
+                    label="Skip Timer Phase" 
+                    desc="Skip to next focus/break phase" 
+                    actionId="skipTimer"
+                    currentShortcut={preferences.shortcuts?.skipTimer}
+                    allShortcuts={preferences.shortcuts || {}}
+                    onChange={(id, val) => setPreferences({ shortcuts: { ...preferences.shortcuts, [id]: val } })}
+                  />
+                  <ShortcutInput 
+                    label="Quick Add Activity" 
+                    desc="Instantly log +1 MCQ or Page" 
+                    actionId="quickAdd"
+                    currentShortcut={preferences.shortcuts?.quickAdd}
+                    allShortcuts={preferences.shortcuts || {}}
+                    onChange={(id, val) => setPreferences({ shortcuts: { ...preferences.shortcuts, [id]: val } })}
+                  />
+                </div>
+                <div className="mt-4 px-1">
+                  <button 
+                    onClick={() => {
+                      if(confirm("Reset all shortcuts to system defaults?")) {
+                        setPreferences({
+                          shortcuts: {
+                            togglePalette: "Control+Space",
+                            closeOverlays: "Control+Enter",
+                            autocompleteTag: "Tab",
+                            toggleTimer: "Space",
+                            skipTimer: "Escape",
+                            quickAdd: "Space"
+                          }
+                        });
+                      }
+                    }}
+                    className="text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:text-white transition"
+                  >
+                    Reset to Defaults
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+      )}
+
       {/* Advanced / Admin Section */}
       {renderSection("advanced", "Advanced Systems", <Terminal className="h-4 w-4 text-rose-400" />, "rose")}
 
@@ -502,6 +673,59 @@ export function SettingsPage() {
       <AnimatePresence>
         {(expandedSections.advanced || searchQuery) && (
           <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="px-5 mt-4 space-y-4">
+            <div className="rounded-2xl bg-rose-500/5 border border-rose-500/10 p-4 space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-rose-300/60 ml-1">Admin Utility: Activity Correction</p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={async () => {
+                    useTrackerStore.getState().decrementStudyMinute(1);
+                    const res = await syncNow({ forcePush: true });
+                    if (res.ok) setStatus("✅ -1 Minute correction synced to MongoDB.");
+                    else setStatus("⚠️ Local change made, but MongoDB sync failed.");
+                  }}
+                  className="flex-1 rounded-xl bg-rose-500/10 border border-rose-500/20 py-3 text-[10px] font-black uppercase text-rose-400 hover:bg-rose-500/20 transition"
+                >
+                  -1 Study Minute
+                </button>
+                <button 
+                  onClick={async () => {
+                    useTrackerStore.getState().decrementStudyMinute(5);
+                    const res = await syncNow({ forcePush: true });
+                    if (res.ok) setStatus("✅ -5 Minutes correction synced to MongoDB.");
+                    else setStatus("⚠️ Local change made, but MongoDB sync failed.");
+                  }}
+                  className="flex-1 rounded-xl bg-rose-500/20 border border-rose-500/30 py-3 text-[10px] font-black uppercase text-rose-200 hover:bg-rose-500/30 transition"
+                >
+                  -5 Study Minutes
+                </button>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <input 
+                  type="number"
+                  min="1"
+                  value={customDecrement}
+                  onChange={(e) => setCustomDecrement(e.target.value)}
+                  className="w-20 bg-black/40 border border-white/10 rounded-xl px-3 text-xs text-white outline-none focus:border-rose-500/50"
+                  placeholder="Amt"
+                />
+                <button 
+                  onClick={async () => {
+                    const amt = parseInt(customDecrement) || 0;
+                    if (amt > 0) {
+                      useTrackerStore.getState().decrementStudyMinute(amt);
+                      const res = await syncNow({ forcePush: true });
+                      if (res.ok) setStatus(`✅ -${amt} Minutes correction synced to MongoDB.`);
+                      else setStatus("⚠️ Local correction made, but sync failed.");
+                    }
+                  }}
+                  className="flex-1 rounded-xl bg-rose-600 px-4 py-3 text-[10px] font-black uppercase text-white shadow-lg shadow-rose-500/20 hover:bg-rose-500 transition"
+                >
+                  Deduct Custom Amount
+                </button>
+              </div>
+            </div>
+
             <button onClick={restartServer} className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/15 py-3 text-xs font-bold text-rose-200 hover:bg-rose-500/25 transition">
               <RefreshCw className="h-3.5 w-3.5" /> Restart Backend Node
             </button>
